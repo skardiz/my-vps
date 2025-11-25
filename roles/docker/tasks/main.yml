@@ -54,3 +54,13 @@
   community.docker.docker_network:
     name: web
     state: present
+
+# --- NEW: Log into Docker Hub to avoid rate limits ---
+- name: Log into Docker Hub (as deploy user)
+  shell: echo "{{ docker_hub_password }}" | docker login -u "{{ docker_hub_username }}" --password-stdin
+  # Выполняем от имени deploy, так как именно он будет пулить образы
+  become: yes
+  become_user: deploy
+  # Выполняем только если заданы переменные (в group_vars/all.yml)
+  when: docker_hub_username is defined and docker_hub_password is defined
+  changed_when: false

@@ -1,17 +1,32 @@
 ---
-- name: Create Traefik directory
-  file:
-    path: /opt/traefik
+- name: Ensure Traefik data directory exists
+  ansible.builtin.file:
+    path: "{{ traefik_data_dir }}"
     state: directory
     mode: "0755"
 
+- name: Ensure Traefik compose directory exists
+  ansible.builtin.file:
+    path: "{{ traefik_compose_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure acme.json exists with correct permissions
+  ansible.builtin.file:
+    path: "{{ traefik_data_dir }}/acme.json"
+    state: touch
+    mode: "0600"
+    modification_time: preserve
+    access_time: preserve
+
 - name: Render Traefik docker-compose.yml
-  template:
+  ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: /opt/traefik/docker-compose.yml
+    dest: "{{ traefik_compose_dir }}/docker-compose.yml"
     mode: "0644"
 
 - name: Start Traefik stack
-  command: docker compose up -d
+  ansible.builtin.command: docker compose up -d
   args:
-    chdir: /opt/traefik
+    chdir: "{{ traefik_compose_dir }}"
+  become_user: deploy

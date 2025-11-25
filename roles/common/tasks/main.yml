@@ -24,7 +24,33 @@
     rule: allow
     name: OpenSSH
 
+- name: Allow HTTP (port 80) for Let's Encrypt
+  ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+
+- name: Allow HTTPS (port 443)
+  ufw:
+    rule: allow
+    port: '443'
+    proto: tcp
+
+- name: Allow AmneziaWG UDP port
+  ufw:
+    rule: allow
+    port: "51820"
+    proto: udp
+
 - name: Enable UFW with default deny
   ufw:
     state: enabled
     policy: deny
+
+- name: Disable MOTD banner
+  ansible.builtin.copy:
+    content: ""
+    dest: /etc/motd
+    owner: root
+    group: root
+    mode: "0644"

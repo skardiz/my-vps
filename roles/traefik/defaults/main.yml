@@ -1,0 +1,18 @@
+traefik_image: "traefik:v3.6.2"
+
+# Директории
+traefik_data_dir: "/srv/docker/traefik"
+traefik_compose_dir: "/opt/traefik"
+
+# Порты
+traefik_http_port: "80"
+traefik_https_port: "443"
+traefik_dashboard_port: "8080"
+
+# Docker provider
+traefik_docker_network: "web"
+
+# ACME / Let's Encrypt для автоматических сертификатов
+traefik_acme_email: "{{ admin_email }}"
+traefik_acme_storage: "/acme.json"
+traefik_acme_staging: "false"  # true для тестов (staging), false для прода

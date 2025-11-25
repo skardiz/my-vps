@@ -1,22 +1,48 @@
 services:
   traefik:
-    image: traefik:v3.6.2
+    container_name: traefik
+    image: {{ traefik_image }}
     command:
+      # API и Dashboard
       - "--api.insecure=true"
       - "--api.dashboard=true"
+      
+      # Docker provider
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=web"
-      - "--entrypoints.web.address=:80"
+      - "--providers.docker.network={{ traefik_docker_network }}"
+      
+      # Entrypoints (порты)
+      - "--entrypoints.web.address=:{{ traefik_http_port }}"
+      - "--entrypoints.websecure.address=:{{ traefik_https_port }}"
+      
+      # Автоматический редирект HTTP -> HTTPS
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      
+      # ACME / Let's Encrypt для автоматических сертификатов
+      - "--certificatesresolvers.letsencrypt.acme.email={{ traefik_acme_email }}"
+      - "--certificatesresolvers.letsencrypt.acme.storage={{ traefik_acme_storage }}"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+{% if traefik_acme_staging == "true" %}
+      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+{% endif %}
+    
     ports:
-      - "80:80"
-      - "8080:8080"
+      - "{{ traefik_http_port }}:{{ traefik_http_port }}"
+      - "{{ traefik_https_port }}:{{ traefik_https_port }}"
+      - "{{ traefik_dashboard_port }}:{{ traefik_dashboard_port }}"
+    
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "{{ traefik_data_dir }}/acme.json:{{ traefik_acme_storage }}"
+    
     restart: unless-stopped
+    
     networks:
-      - web
+      - {{ traefik_docker_network }}
 
 networks:
-  web:
+  {{ traefik_docker_network }}:
     external: true

@@ -1,0 +1,12 @@
+base_domain: "ziix.ru"
+
+admin_email: "{{ vault_admin_email }}"
+admin_password: "{{ vault_admin_password }}"
+admin_username: "admin"
+
+docker_hub_username: "skardiz"
+docker_hub_password: "{{ vault_docker_hub_password }}"
+
+traefik_acme_email: "{{ admin_email }}"
+amneziawg_nginx_user: "{{ admin_username }}"
+amneziawg_nginx_password: "{{ admin_password }}"
