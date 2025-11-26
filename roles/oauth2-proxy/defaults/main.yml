@@ -1,0 +1,15 @@
+oauth2_proxy_service_name: "oauth2-proxy"
+oauth2_proxy_image: "quay.io/oauth2-proxy/oauth2-proxy:v7.6.0"
+
+oauth2_proxy_compose_dir: "/opt/oauth2-proxy"
+oauth2_proxy_docker_network: "{{ docker_network_name }}"
+
+oauth2_proxy_issuer_url: "https://auth.ziix.ru/auth/v1"
+oauth2_proxy_client_id: "oauth2-proxy"
+oauth2_proxy_client_secret: "CHANGE_ME"
+
+oauth2_proxy_cookie_secret: "CHANGE_ME_BASE64_32B"
+oauth2_proxy_cookie_domain: ".ziix.ru"
+oauth2_proxy_whitelist_domains: ".ziix.ru"
+
+oauth2_proxy_redirect_url: "https://auth.ziix.ru/oauth2/callback"

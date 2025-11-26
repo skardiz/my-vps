@@ -1,0 +1,31 @@
+---
+- name: Ensure Rauthy data directory exists
+  ansible.builtin.file:
+    path: "{{ rauthy_data_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Ensure Rauthy compose directory exists
+  ansible.builtin.file:
+    path: "{{ rauthy_compose_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Render Rauthy config.toml
+  ansible.builtin.template:
+    src: config.toml.j2
+    dest: "{{ rauthy_compose_dir }}/config.toml"
+    mode: "0600"
+
+- name: Render Rauthy docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ rauthy_compose_dir }}/docker-compose.yml"
+    mode: "0644"
+
+- name: Start Rauthy stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ rauthy_compose_dir }}"
+    state: present
+  become: true
+  become_user: "{{ deploy_user | default('deploy') }}"

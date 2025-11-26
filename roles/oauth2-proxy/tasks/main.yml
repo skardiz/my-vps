@@ -1,0 +1,19 @@
+---
+- name: Ensure oauth2-proxy compose directory exists
+  ansible.builtin.file:
+    path: "{{ oauth2_proxy_compose_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Render oauth2-proxy docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ oauth2_proxy_compose_dir }}/docker-compose.yml"
+    mode: "0644"
+
+- name: Start oauth2-proxy stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ oauth2_proxy_compose_dir }}"
+    state: present
+  become: true
+  become_user: "{{ deploy_user | default('deploy') }}"

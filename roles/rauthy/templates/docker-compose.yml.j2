@@ -1,0 +1,26 @@
+services:
+  {{ rauthy_service_name }}:
+    container_name: {{ rauthy_service_name }}
+    image: {{ rauthy_image }}
+    restart: unless-stopped
+    networks:
+      - {{ docker_network_name }}
+    volumes:
+      - "{{ rauthy_data_dir }}:/data"
+      - "{{ rauthy_compose_dir }}/config.toml:/config/config.toml:ro"
+    environment:
+      RAUTHY_CONFIG: "/config/config.toml"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "{{ docker_network_name }}"
+
+      traefik.http.routers.rauthy.rule: "Host(`{{ rauthy_domain }}`)"
+      traefik.http.routers.rauthy.entrypoints: "websecure"
+      traefik.http.routers.rauthy.tls: "true"
+      traefik.http.routers.rauthy.tls.certresolver: "letsencrypt"
+      traefik.http.services.rauthy.loadbalancer.server.port: "8080"
+
+networks:
+  {{ docker_network_name }}:
+    external: true
+

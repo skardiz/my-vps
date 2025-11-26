@@ -1,0 +1,47 @@
+[bootstrap]
+admin_email = "{{ rauthy_admin_email }}"
+
+[cluster]
+node_id = {{ rauthy_cluster_node_id }}
+nodes = [{{ rauthy_cluster_nodes | map('tojson') | join(', ') }}]
+secret_raft = "{{ rauthy_cluster_secret_raft }}"
+secret_api = "{{ rauthy_cluster_secret_api }}"
+
+[email]
+smtp_url = "{{ rauthy_smtp_url }}"
+smtp_port = {{ rauthy_smtp_port }}
+smtp_danger_insecure = false
+smtp_username = "{{ rauthy_smtp_username }}"
+smtp_password = "{{ rauthy_smtp_password }}"
+smtp_from = "Rauthy <{{ rauthy_smtp_username }}>"
+
+[encryption]
+keys = {{ rauthy_encryption_keys | tojson }}
+key_active = "{{ rauthy_encryption_key_active }}"
+
+[server]
+scheme = "http"
+pub_url = "{{ rauthy_domain }}"
+proxy_mode = true
+trusted_proxies = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']
+
+[session]
+cookie_domain = "{{ rauthy_cookie_domain }}"
+cookie_name = "rauthy_session"
+session_timeout = 1209600
+danger_cookie_insecure = true
+
+[webauthn]
+rp_id = "{{ rauthy_domain }}"
+rp_origin = "https://{{ rauthy_domain }}:443"
+
+[[client]]
+id = "{{ rauthy_client_oauth2_id }}"
+name = "{{ rauthy_client_oauth2_name }}"
+enabled = true
+confidential = true
+secret = "{{ rauthy_client_oauth2_secret }}"
+redirect_uris = {{ rauthy_client_oauth2_redirect_uris | tojson }}
+post_logout_redirect_uris = {{ rauthy_client_oauth2_post_logout_uris | tojson }}
+allowed_origins = {{ rauthy_client_oauth2_allowed_origins | tojson }}
+scopes = {{ rauthy_client_oauth2_scopes | tojson }}

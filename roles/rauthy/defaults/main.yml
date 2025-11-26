@@ -1,0 +1,41 @@
+rauthy_service_name: "rauthy"
+rauthy_image: "ghcr.io/sebadob/rauthy:0.31.3"
+
+rauthy_data_dir: "/srv/docker/rauthy"
+rauthy_compose_dir: "/opt/rauthy"
+
+rauthy_domain: "auth.ziix.ru"
+
+rauthy_admin_email: "skardizone@gmail.com"
+
+rauthy_smtp_url: "smtp.gmail.com"
+rauthy_smtp_port: 587
+rauthy_smtp_username: "skardizone@gmail.com"
+rauthy_smtp_password: "<APP_PASSWORD_FROM_VAULT>"
+
+rauthy_cookie_domain: ".ziix.ru"
+
+rauthy_cluster_node_id: 1
+rauthy_cluster_nodes: ["1 localhost:8100 localhost:8200"]
+rauthy_cluster_secret_raft: "5fd80a0bf2be3855df7c0b35ae19eb18"
+rauthy_cluster_secret_api: "06f0ec61c3ffb12bb58d06b86ebf7c5b"
+
+rauthy_encryption_key_active: "key01"
+rauthy_encryption_keys:
+  - "key01/oXXJNpwEBU+CGoo1WQPIgzhLCeKBl29M2mD0N4nloQ0="
+
+rauthy_client_oauth2_id: "oauth2-proxy"
+rauthy_client_oauth2_name: "OAuth2 Proxy SSO"
+rauthy_client_oauth2_secret: "CHANGE_ME"
+rauthy_client_oauth2_redirect_uris:
+  - "https://auth.ziix.ru/oauth2/callback"
+rauthy_client_oauth2_post_logout_uris:
+  - "https://auth.ziix.ru/"
+rauthy_client_oauth2_allowed_origins:
+  - "https://proxy.ziix.ru"
+  - "https://vpn.ziix.ru"
+rauthy_client_oauth2_scopes:
+  - "openid"
+  - "profile"
+  - "email"
+  - "groups"
