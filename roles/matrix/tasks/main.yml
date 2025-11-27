@@ -1,0 +1,31 @@
+---
+- name: Ensure Matrix directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"
+  loop:
+    - "{{ matrix_data_dir }}"
+    - "{{ matrix_data_dir }}/db"
+    - "{{ matrix_compose_dir }}"
+  become: true
+
+- name: Render Matrix docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ matrix_compose_dir }}/docker-compose.yml"
+    mode: "0644"
+  become: true
+
+# Важно: Удаляем контейнер nginx (wellknown), если он был запущен,
+# так как мы удалили его из композа, но docker compose v2 иногда не удаляет "сирот" автоматически,
+# если мы просто перезапустим stack.
+- name: Start Matrix stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ matrix_compose_dir }}"
+    state: present
+    remove_orphans: true # <-- Удалит лишний контейнер wellknown
+  become: true
+  become_user: "{{ deploy_user }}"

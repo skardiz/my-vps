@@ -60,6 +60,28 @@
     proto: udp
     comment: 'Syncthing Discovery'
 
+# --- TURN Server (Eturnal) ---
+- name: Allow TURN Signaling (3478 UDP)
+  community.general.ufw:
+    rule: allow
+    port: 3478
+    proto: udp
+    comment: 'TURN Signaling UDP'
+
+- name: Allow TURN Signaling (3478 TCP)
+  community.general.ufw:
+    rule: allow
+    port: 3478
+    proto: tcp
+    comment: 'TURN Signaling TCP'
+
+- name: Allow TURN Relay Range (UDP)
+  community.general.ufw:
+    rule: allow
+    port: 49152:49200
+    proto: udp
+    comment: 'TURN Relay Media'
+
 - name: Enable UFW with default deny
   community.general.ufw:
     state: enabled

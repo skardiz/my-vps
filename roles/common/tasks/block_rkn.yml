@@ -1,0 +1,74 @@
+---
+- name: Install ipset, curl and cron
+  ansible.builtin.apt:
+    name:
+      - ipset
+      - curl
+      - cron
+    state: present
+    update_cache: true
+
+- name: Create directory for RKN block script
+  ansible.builtin.file:
+    path: /opt/rkn-block
+    state: directory
+    mode: '0755'
+
+- name: Create RKN update script
+  ansible.builtin.copy:
+    dest: /opt/rkn-block/update_blacklist.sh
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      # Скрипт обновления черного списка РКН для ipset
+
+      SET_NAME="rugov_blacklist"
+      URL="https://raw.githubusercontent.com/C24Be/AS_Network_List/main/blacklists/blacklist.txt"
+      TMP_FILE="/tmp/rkn_blacklist.txt"
+
+      # Качаем список
+      if ! curl -s -f "$URL" -o "$TMP_FILE"; then
+          echo "Error downloading blacklist"
+          exit 1
+      fi
+
+      # Создаем временный сет
+      ipset create "${SET_NAME}_tmp" hash:net -exist
+
+      # Заполняем сет (игнорируем ошибки дубликатов)
+      while read -r line; do
+          [[ "$line" =~ ^#.*$ ]] && continue
+          [[ -z "$line" ]] && continue
+          ipset add "${SET_NAME}_tmp" "$line" -exist
+      done < "$TMP_FILE"
+
+      # Если основного сета нет - создаем
+      ipset create "$SET_NAME" hash:net -exist
+
+      # Атомарно подменяем сет
+      ipset swap "${SET_NAME}_tmp" "$SET_NAME"
+
+      # Удаляем временный сет
+      ipset destroy "${SET_NAME}_tmp"
+      rm "$TMP_FILE"
+
+      # Добавляем правило iptables в начало INPUT
+      iptables -C INPUT -m set --match-set "$SET_NAME" src -j DROP 2>/dev/null || \
+      iptables -I INPUT 1 -m set --match-set "$SET_NAME" src -j DROP
+
+- name: Run RKN block script immediately
+  ansible.builtin.command: /opt/rkn-block/update_blacklist.sh
+  changed_when: false
+
+- name: Ensure cron service is running
+  ansible.builtin.service:
+    name: cron
+    state: started
+    enabled: true
+
+- name: Add cron job to update blacklist daily
+  ansible.builtin.cron:
+    name: "Update RKN blacklist"
+    minute: "0"
+    hour: "3"
+    job: "/opt/rkn-block/update_blacklist.sh"

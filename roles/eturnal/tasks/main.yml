@@ -1,0 +1,30 @@
+---
+- name: Ensure Eturnal directory exists
+  ansible.builtin.file:
+    path: "{{ eturnal_config_dir }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"
+  become: true
+
+- name: Render Eturnal config
+  ansible.builtin.template:
+    src: eturnal.yml.j2
+    dest: "{{ eturnal_config_dir }}/eturnal.yml"
+    mode: "0644"
+  become: true
+
+- name: Render Docker Compose
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ eturnal_config_dir }}/docker-compose.yml"
+    mode: "0644"
+  become: true
+
+- name: Start Eturnal
+  community.docker.docker_compose_v2:
+    project_src: "{{ eturnal_config_dir }}"
+    state: present
+  become: true
+  become_user: "{{ deploy_user }}"
