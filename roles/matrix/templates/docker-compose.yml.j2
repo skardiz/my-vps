@@ -19,7 +19,7 @@ services:
       # Well-Known (Conduit сам их сгенерирует)
       - CONDUIT_WELL_KNOWN_SERVER={{ matrix_well_known_server }}
       - CONDUIT_WELL_KNOWN_CLIENT={{ matrix_well_known_client }}
-      
+
       # TURN
       - CONDUIT_TURN_URIS={{ matrix_turn_uris }}
       - CONDUIT_TURN_SECRET={{ matrix_turn_secret }}
@@ -31,15 +31,14 @@ services:
       traefik.enable: "true"
       traefik.docker.network: "{{ docker_network_name }}"
 
-      # API Router (matrix.ziix.ru)
+      # API Router
       traefik.http.routers.{{ matrix_service_name }}-api.rule: "Host(`{{ matrix_server_domain }}`)"
       traefik.http.routers.{{ matrix_service_name }}-api.entrypoints: "websecure"
       traefik.http.routers.{{ matrix_service_name }}-api.tls: "true"
       traefik.http.routers.{{ matrix_service_name }}-api.tls.certresolver: "letsencrypt"
       traefik.http.routers.{{ matrix_service_name }}-api.service: "{{ matrix_service_name }}"
 
-      # Well-Known Router (ziix.ru/.well-known/matrix/*)
-      # Теперь один роутер ловит всё (и client, и server), так как Conduit отдает оба
+      # Well-Known Router
       traefik.http.routers.{{ matrix_service_name }}-wk.rule: "Host(`{{ matrix_server_name }}`) && PathPrefix(`/.well-known/matrix/`)"
       traefik.http.routers.{{ matrix_service_name }}-wk.entrypoints: "websecure"
       traefik.http.routers.{{ matrix_service_name }}-wk.tls: "true"

@@ -18,6 +18,13 @@ services:
       - "{{ syncthing_udp_port }}:{{ syncthing_udp_port }}/udp"
       - "{{ syncthing_discovery_port }}:{{ syncthing_discovery_port }}/udp"
 
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8384/rest/noauth/health"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
     labels:
       traefik.enable: "true"
       traefik.docker.network: "{{ docker_network_name }}"

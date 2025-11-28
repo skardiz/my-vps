@@ -2,7 +2,7 @@ services:
   {{ traefik_service_name }}:
     container_name: {{ traefik_service_name }}
     image: {{ traefik_image }}
-    
+
     # Мы перенесли конфиг в файл, поэтому тут оставляем только разрешение на плагины
     command:
       - "--experimental.plugins.geoblock.settings.useunsafe=true"
@@ -21,11 +21,18 @@ services:
       - "{{ traefik_data_dir }}/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro"
       - "traefik_geodb:/data/ip2database"
 
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
     restart: unless-stopped
 
     labels:
       traefik.enable: "true"
-      
+
       # Сервис API
       traefik.http.services.{{ traefik_service_name }}.loadbalancer.server.port: "8080"
 
@@ -37,8 +44,6 @@ services:
       traefik.http.routers.dashboard.tls.certresolver: "letsencrypt"
 
       # 🔥 ЦЕПОЧКА ЗАЩИТЫ ДАШБОРДА: Сначала ГЕОБЛОК, потом АВТОРИЗАЦИЯ 🔥
-      # geoblock-strict@file - только RU/NL
-      # tinyauth@docker - проверка пароля
       traefik.http.routers.dashboard.middlewares: "geoblock-strict@file,tinyauth@docker"
 
       traefik.docker.network: "{{ traefik_docker_network }}"

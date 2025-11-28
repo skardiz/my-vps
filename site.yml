@@ -30,3 +30,6 @@
 
     - role: eturnal
       tags: eturnal
+
+    - role: autoheal
+      tags: autoheal
