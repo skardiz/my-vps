@@ -17,5 +17,6 @@
   community.docker.docker_compose_v2:
     project_src: "{{ tinyauth_compose_dir }}"
     state: present
+    remove_orphans: true
   become: true
   become_user: "{{ deploy_user }}"

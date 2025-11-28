@@ -16,7 +16,6 @@ services:
     volumes:
       - "{{ pocketid_data_dir }}/data:/app/data"
 
-    # Healthcheck
     healthcheck:
       test: ["CMD", "/app/pocket-id", "healthcheck"]
       interval: 1m30s

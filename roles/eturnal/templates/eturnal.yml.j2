@@ -12,11 +12,9 @@ eturnal:
   relay_min_port: {{ eturnal_relay_min_port }}
   relay_max_port: {{ eturnal_relay_max_port }}
 
-  # Логи в stdout для Docker
   log_dir: stdout
   log_level: info
 
-  # Безопасность (блокируем приватные сети)
   blacklist:
     - "127.0.0.0/8"
     - "::1"

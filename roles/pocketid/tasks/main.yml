@@ -21,12 +21,6 @@
   community.docker.docker_compose_v2:
     project_src: "{{ pocketid_compose_dir }}"
     state: present
+    remove_orphans: true
   become: true
   become_user: "{{ deploy_user }}"
-
-- name: Display PocketID setup information
-  ansible.builtin.debug:
-    msg:
-      - "✅ PocketID deployed successfully!"
-      - "🔗 Setup URL: https://{{ pocketid_domain }}/login/setup"
-      - "👤 Create your admin user at this URL"

@@ -1,11 +1,6 @@
 ---
 autoheal_image: "willfarrell/autoheal:latest"
-# Интервал проверки (в секундах)
 autoheal_interval: 60
-# Задержка перед первым запуском (чтобы контейнеры успели встать)
 autoheal_start_period: 60
-# Таймаут остановки перед убийством (если не стопается сам)
 autoheal_stop_timeout: 10
-# all = следить за всеми healthcheck.
-# Если хочешь выборочно - ставь 'label' (и вешай label: autoheal=true на контейнеры)
 autoheal_container_label: "all"

@@ -1,74 +1,73 @@
 ---
-- name: Install ipset, curl and cron
+- name: Install ipset and curl
   ansible.builtin.apt:
     name:
       - ipset
       - curl
-      - cron
     state: present
-    update_cache: true
 
-- name: Create directory for RKN block script
+- name: Create directory for RKN scripts
   ansible.builtin.file:
     path: /opt/rkn-block
     state: directory
     mode: '0755'
 
-- name: Create RKN update script
+- name: Deploy RKN update script
   ansible.builtin.copy:
     dest: /opt/rkn-block/update_blacklist.sh
-    mode: '0755'
+    mode: '0750'
     content: |
       #!/bin/bash
-      # Скрипт обновления черного списка РКН для ipset
-
+      set -e
       SET_NAME="rugov_blacklist"
       URL="https://raw.githubusercontent.com/C24Be/AS_Network_List/main/blacklists/blacklist.txt"
       TMP_FILE="/tmp/rkn_blacklist.txt"
-
-      # Качаем список
       if ! curl -s -f "$URL" -o "$TMP_FILE"; then
           echo "Error downloading blacklist"
           exit 1
       fi
-
-      # Создаем временный сет
+      if [ ! -s "$TMP_FILE" ]; then
+          echo "Downloaded file is empty!"
+          exit 1
+      fi
       ipset create "${SET_NAME}_tmp" hash:net -exist
-
-      # Заполняем сет (игнорируем ошибки дубликатов)
-      while read -r line; do
-          [[ "$line" =~ ^#.*$ ]] && continue
-          [[ -z "$line" ]] && continue
+      grep -E '^([0-9]{1,3}\.){3}[0-9]{1,3}' "$TMP_FILE" | while read -r line; do
           ipset add "${SET_NAME}_tmp" "$line" -exist
-      done < "$TMP_FILE"
-
-      # Если основного сета нет - создаем
+      done
       ipset create "$SET_NAME" hash:net -exist
-
-      # Атомарно подменяем сет
       ipset swap "${SET_NAME}_tmp" "$SET_NAME"
-
-      # Удаляем временный сет
       ipset destroy "${SET_NAME}_tmp"
       rm "$TMP_FILE"
-
-      # Добавляем правило iptables в начало INPUT
       iptables -C INPUT -m set --match-set "$SET_NAME" src -j DROP 2>/dev/null || \
       iptables -I INPUT 1 -m set --match-set "$SET_NAME" src -j DROP
 
-- name: Run RKN block script immediately
-  ansible.builtin.command: /opt/rkn-block/update_blacklist.sh
-  changed_when: false
+- name: Create Systemd service for RKN block
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/rkn-block.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Block RKN subnets via ipset
+      After=network.target
 
-- name: Ensure cron service is running
-  ansible.builtin.service:
-    name: cron
-    state: started
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/rkn-block/update_blacklist.sh
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Enable and Start RKN service
+  ansible.builtin.systemd:
+    name: rkn-block
     enabled: true
+    state: started
+    daemon_reload: true
 
-- name: Add cron job to update blacklist daily
+- name: Add cron job for daily updates
   ansible.builtin.cron:
     name: "Update RKN blacklist"
     minute: "0"
-    hour: "3"
-    job: "/opt/rkn-block/update_blacklist.sh"
+    hour: "4"
+    job: "systemctl start rkn-block"

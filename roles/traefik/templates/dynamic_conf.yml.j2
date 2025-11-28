@@ -1,7 +1,5 @@
 http:
   middlewares:
-    # 🔒 СТРОГИЙ РЕЖИМ (Только RU + NL)
-    # Для админок, VPN, PocketID
     geoblock-strict:
       plugin:
         geoblock:
@@ -13,12 +11,10 @@ http:
           databaseAutoUpdateDir: "/data/ip2database"
           allowPrivate: true
 
-          # Только свои
           allowedCountries:
             - "RU"
             - "NL"
 
-          # Кого блокируем (для перестраховки)
           blockedCountries:
             - "CN"
 
@@ -26,8 +22,6 @@ http:
           ipHeaderStrategy: "CheckFirstNonePrivate"
           disallowedStatusCode: 403
 
-    # 🌍 ЛЕГКИЙ РЕЖИМ (Весь мир без Китая)
-    # Для Блога (если хочешь пускать Европу)
     geoblock-blog:
       plugin:
         geoblock:
@@ -39,7 +33,6 @@ http:
           databaseAutoUpdateDir: "/data/ip2database"
           allowPrivate: true
 
-          # Кого БАНИМ
           blockedCountries:
             - "CN" # Китай
             - "IN" # Индия

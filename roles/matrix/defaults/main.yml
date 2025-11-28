@@ -4,12 +4,9 @@ matrix_image: "matrixconduit/matrix-conduit:latest"
 matrix_data_dir: "{{ docker_data_dir }}/{{ matrix_service_name }}"
 matrix_compose_dir: "{{ docker_config_dir }}/{{ matrix_service_name }}"
 
-# Технический домен (API)
 matrix_server_domain: "matrix.{{ base_domain }}"
-# Красивое имя (ID пользователя)
 matrix_server_name: "{{ base_domain }}"
 
-# Делегация (Conduit сам отдаст эти настройки)
 matrix_well_known_server: "matrix.{{ base_domain }}:443"
 matrix_well_known_client: "https://matrix.{{ base_domain }}"
 
@@ -20,6 +17,5 @@ matrix_max_request_size: "20000000"
 matrix_trusted_servers: '["matrix.org"]'
 matrix_database_backend: "rocksdb"
 
-# --- TURN Configuration (Eturnal) ---
 matrix_turn_uris: '["turn:turn.{{ base_domain }}:3478?transport=udp", "turn:turn.{{ base_domain }}:3478?transport=tcp"]'
 matrix_turn_secret: "{{ vault_eturnal_secret }}"

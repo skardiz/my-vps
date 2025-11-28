@@ -3,20 +3,13 @@ tinyauth_image: "ghcr.io/steveiliop56/tinyauth:v4"
 
 tinyauth_compose_dir: "{{ docker_config_dir }}/{{ tinyauth_service_name }}"
 
-# Домены
 tinyauth_domain: "tinyauth.{{ base_domain }}"
-# Публичный адрес PocketID (для браузера)
 tinyauth_pocketid_public_url: "https://auth.{{ base_domain }}"
-# Внутренний адрес PocketID (для контейнера TinyAuth)
-# Важно: контейнер PocketID должен называться именно "pocketid"
 tinyauth_pocketid_internal_url: "http://pocketid:1411"
 
-# OAuth credentials (из vault)
 tinyauth_pocketid_client_id: "{{ vault_tinyauth_pocketid_client_id }}"
 tinyauth_pocketid_client_secret: "{{ vault_tinyauth_pocketid_client_secret }}"
 
-# Port
 tinyauth_port: "3000"
 
-# Auto-redirect to PocketID
 tinyauth_auto_redirect: true

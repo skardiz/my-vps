@@ -1,6 +1,6 @@
 ---
 - name: "Bootstrap VPS: create deploy user and lock down SSH"
-  hosts: vps_bootstrap   # <-- здесь главное изменение
+  hosts: vps_bootstrap
   become: yes
 
   roles:

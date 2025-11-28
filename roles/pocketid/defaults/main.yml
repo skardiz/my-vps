@@ -1,16 +1,14 @@
 pocketid_service_name: "pocketid"
-pocketid_image: "ghcr.io/pocket-id/pocket-id:v1"  # ← Официальный образ
+pocketid_image: "ghcr.io/pocket-id/pocket-id:v1"
 
 pocketid_data_dir: "{{ docker_data_dir }}/{{ pocketid_service_name }}"
 pocketid_compose_dir: "{{ docker_config_dir }}/{{ pocketid_service_name }}"
 
 pocketid_domain: "auth.{{ base_domain }}"
-pocketid_port: "1411"  # ← Правильный порт
+pocketid_port: "1411"
 
-# PocketID поддерживает PUID/PGID
 pocketid_puid: "{{ default_puid }}"
 pocketid_pgid: "{{ default_pgid }}"
 
-# Дополнительные параметры
-pocketid_trust_proxy: "true"  # ← Включим, т.к. мы за Traefik
-pocketid_maxmind_license_key: ""  # Опционально
+pocketid_trust_proxy: "true"
+pocketid_maxmind_license_key: ""

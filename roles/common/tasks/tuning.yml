@@ -1,5 +1,4 @@
 ---
-# --- Kernel Modules ---
 - name: Ensure required kernel modules are loaded
   community.general.modprobe:
     name: "{{ item }}"
@@ -9,7 +8,6 @@
     - tcp_bbr
     - nf_conntrack
 
-# --- WireGuard/VPN kernel and network tuning ---
 - name: Tune network stack for WireGuard (Optimized for 4GB RAM)
   ansible.posix.sysctl:
     name: "{{ item.name }}"
@@ -33,13 +31,11 @@
     - { name: 'net.ipv4.ip_forward', value: '1' }
     - { name: 'net.ipv6.conf.all.forwarding', value: '1' }
     - { name: 'net.ipv4.tcp_mtu_probing', value: '1' }
-    - { name: 'net.ipv4.tcp_base_mss', value: '1024' }
     - { name: 'fs.file-max', value: '1048576' }
     - { name: 'net.netfilter.nf_conntrack_max', value: '262144' }
     - { name: 'net.netfilter.nf_conntrack_tcp_timeout_established', value: '7200' }
   notify: Reload sysctl
 
-# --- Memory optimization ---
 - name: Tune Virtual Memory (swap & cache)
   ansible.posix.sysctl:
     name: "{{ item.name }}"
@@ -54,7 +50,6 @@
     - { name: 'vm.dirty_background_ratio', value: '5' }
   notify: Reload sysctl
 
-# --- ZRAM swap ---
 - name: Configure zram swap (lz4 for lower latency)
   ansible.builtin.copy:
     dest: /etc/default/zramswap
@@ -70,12 +65,25 @@
     enabled: true
     state: started
 
-# --- Network offloads (WireGuard performance) ---
-- name: Enable network offload (WireGuard performance)
-  ansible.builtin.shell: |
-    ethtool -K {{ ansible_default_ipv4.interface }} gro on gso on || true
-    ethtool -K {{ ansible_default_ipv4.interface }} tx-nocache-copy on || true
-  changed_when: false
+- name: Enable network offload features (gro, gso)
+  ansible.builtin.command:
+    cmd: ethtool -K {{ ansible_default_ipv4.interface }} gro on gso on
+  register: common_ethtool_offload
+  changed_when: common_ethtool_offload.rc == 0
+  failed_when:
+    - common_ethtool_offload.rc != 0
+    - "'Operation not supported' not in common_ethtool_offload.stderr"
+    - "'Operation not permitted' not in common_ethtool_offload.stderr"
+
+- name: Enable scatter-gather (tx-nocache-copy)
+  ansible.builtin.command:
+    cmd: ethtool -K {{ ansible_default_ipv4.interface }} tx-nocache-copy on
+  register: common_ethtool_nocache
+  changed_when: common_ethtool_nocache.rc == 0
+  failed_when:
+    - common_ethtool_nocache.rc != 0
+    - "'Operation not supported' not in common_ethtool_nocache.stderr"
+    - "'fixed' not in common_ethtool_nocache.stderr"
 
 - name: Persist offloads via systemd
   ansible.builtin.copy:
@@ -88,8 +96,8 @@
 
       [Service]
       Type=oneshot
-      ExecStart=/usr/sbin/ethtool -K {{ ansible_default_ipv4.interface }} gro on gso on
-      ExecStart=/usr/sbin/ethtool -K {{ ansible_default_ipv4.interface }} tx-nocache-copy on
+      ExecStart=-/usr/sbin/ethtool -K {{ ansible_default_ipv4.interface }} gro on gso on
+      ExecStart=-/usr/sbin/ethtool -K {{ ansible_default_ipv4.interface }} tx-nocache-copy on
       RemainAfterExit=yes
 
       [Install]

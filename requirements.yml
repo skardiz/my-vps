@@ -1,2 +1,13 @@
+---
 collections:
+  # Docker и Compose V2 (актуальная ветка 5.x)
   - name: community.docker
+    version: ">=5.0.2"
+
+  # Основные модули системы (ufw, modprobe и т.д. - ветка 12.x)
+  - name: community.general
+    version: ">=12.0.1"
+
+  # Системные настройки (sysctl и POSIX совместимость - ветка 2.x)
+  - name: ansible.posix
+    version: ">=2.1.0"

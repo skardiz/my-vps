@@ -6,7 +6,7 @@
     mode: '0755'
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
-  become: true  # Создаем под sudo в /opt
+  become: true
 
 - name: Deploy Autoheal compose
   ansible.builtin.template:

@@ -10,7 +10,6 @@
     - "{{ amnezia_data_dir }}"
     - "{{ amnezia_compose_dir }}"
 
-# 🔥 ГЕНЕРАЦИЯ ХАКНУТОГО КОНФИГА 🔥
 - name: Render custom Nginx config for Amnezia (No Auth)
   ansible.builtin.template:
     src: nginx_default.conf.j2
@@ -27,12 +26,6 @@
   community.docker.docker_compose_v2:
     project_src: "{{ amnezia_compose_dir }}"
     state: present
+    remove_orphans: true
   become: true
   become_user: "{{ deploy_user }}"
-
-- name: Display Amnezia information
-  ansible.builtin.debug:
-    msg:
-      - "✅ AmneziaWG deployed successfully!"
-      - "🌍 URL: https://{{ amnezia_domain }}"
-      - "🔒 Protection: TinyAuth (Internal BasicAuth disabled)"

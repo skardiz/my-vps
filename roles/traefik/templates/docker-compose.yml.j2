@@ -3,10 +3,8 @@ services:
     container_name: {{ traefik_service_name }}
     image: {{ traefik_image }}
 
-    # Мы перенесли конфиг в файл, поэтому тут оставляем только разрешение на плагины
     command:
       - "--experimental.plugins.geoblock.settings.useunsafe=true"
-      # Нужно указать путь к конфигу, так как по умолчанию traefik ищет traefik.yml, но мы маунтим явно
       - "--configFile=/etc/traefik/traefik.yml"
 
     ports:
@@ -16,7 +14,6 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "{{ traefik_data_dir }}/acme.json:{{ traefik_acme_storage }}"
-      # Новые маунты:
       - "{{ traefik_data_dir }}/traefik.yml:/etc/traefik/traefik.yml:ro"
       - "{{ traefik_data_dir }}/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro"
       - "traefik_geodb:/data/ip2database"

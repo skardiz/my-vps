@@ -1,5 +1,4 @@
 ---
-# --- Firewall Configuration ---
 - name: Limit SSH connections (anti-bruteforce)
   community.general.ufw:
     rule: limit
@@ -60,7 +59,6 @@
     proto: udp
     comment: 'Syncthing Discovery'
 
-# --- TURN Server (Eturnal) ---
 - name: Allow TURN Signaling (3478 UDP)
   community.general.ufw:
     rule: allow
@@ -87,7 +85,6 @@
     state: enabled
     policy: deny
 
-# --- Kernel Security Hardening ---
 - name: Kernel security hardening
   ansible.posix.sysctl:
     name: "{{ item.name }}"

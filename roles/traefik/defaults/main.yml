@@ -11,10 +11,8 @@ traefik_https_port: "443"
 
 traefik_docker_network: "{{ docker_network_name }}"
 
-# ACME / Let's Encrypt
 traefik_acme_email: "{{ admin_email }}"
 traefik_acme_storage: "/acme.json"
 traefik_acme_staging: "false"
 
-# Dashboard auth
 traefik_dashboard_auth: "{{ vault_traefik_dashboard_auth }}"
