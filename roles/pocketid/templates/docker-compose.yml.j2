@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
 
     environment:
-      APP_URL: "https://{{ pocketid_domain }}"  # ← Исправлено имя
+      APP_URL: "https://{{ pocketid_domain }}"
       TRUST_PROXY: "{{ pocketid_trust_proxy }}"
       PUID: "{{ pocketid_puid }}"
       PGID: "{{ pocketid_pgid }}"
@@ -14,7 +14,7 @@ services:
 {% endif %}
 
     volumes:
-      - "{{ pocketid_data_dir }}/data:/app/data"  # ← Исправлен путь
+      - "{{ pocketid_data_dir }}/data:/app/data"
 
     # Healthcheck
     healthcheck:
@@ -39,6 +39,9 @@ services:
       traefik.http.routers.{{ pocketid_service_name }}.tls: "true"
       traefik.http.routers.{{ pocketid_service_name }}.tls.certresolver: "letsencrypt"
       traefik.http.routers.{{ pocketid_service_name }}.service: "{{ pocketid_service_name }}"
+
+      # 🔒 ЗАЩИТА: ТОЛЬКО GEOBLOCK 🔒 (Пароль проверяет сам PocketID)
+      traefik.http.routers.{{ pocketid_service_name }}.middlewares: "geoblock-strict@file"
 
       # Сервис (PocketID слушает на 1411!)
       traefik.http.services.{{ pocketid_service_name }}.loadbalancer.server.port: "1411"

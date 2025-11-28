@@ -2,26 +2,12 @@ services:
   {{ traefik_service_name }}:
     container_name: {{ traefik_service_name }}
     image: {{ traefik_image }}
+    
+    # Мы перенесли конфиг в файл, поэтому тут оставляем только разрешение на плагины
     command:
-      - "--api=true"
-      - "--api.dashboard=true"
-
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network={{ traefik_docker_network }}"
-
-      - "--entrypoints.web.address=:{{ traefik_http_port }}"
-      - "--entrypoints.websecure.address=:{{ traefik_https_port }}"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-
-      - "--certificatesresolvers.letsencrypt.acme.email={{ traefik_acme_email }}"
-      - "--certificatesresolvers.letsencrypt.acme.storage={{ traefik_acme_storage }}"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-{% if traefik_acme_staging == "true" %}
-      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
-{% endif %}
+      - "--experimental.plugins.geoblock.settings.useunsafe=true"
+      # Нужно указать путь к конфигу, так как по умолчанию traefik ищет traefik.yml, но мы маунтим явно
+      - "--configFile=/etc/traefik/traefik.yml"
 
     ports:
       - "{{ traefik_http_port }}:{{ traefik_http_port }}"
@@ -30,30 +16,38 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "{{ traefik_data_dir }}/acme.json:{{ traefik_acme_storage }}"
+      # Новые маунты:
+      - "{{ traefik_data_dir }}/traefik.yml:/etc/traefik/traefik.yml:ro"
+      - "{{ traefik_data_dir }}/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro"
+      - "traefik_geodb:/data/ip2database"
 
     restart: unless-stopped
 
     labels:
       traefik.enable: "true"
-
-      # ЯВНОЕ ИМЯ СЕРВИСА (api@internal - внутренний сервис Traefik)
+      
+      # Сервис API
       traefik.http.services.{{ traefik_service_name }}.loadbalancer.server.port: "8080"
 
-      # Дашборд на домене
+      # Дашборд
       traefik.http.routers.dashboard.rule: "Host(`{{ traefik_dashboard_domain }}`)"
       traefik.http.routers.dashboard.service: "api@internal"
       traefik.http.routers.dashboard.entrypoints: "websecure"
       traefik.http.routers.dashboard.tls: "true"
       traefik.http.routers.dashboard.tls.certresolver: "letsencrypt"
 
-      # 🔥 ЗАЩИТА ЧЕРЕЗ TINYAUTH 🔥
-      traefik.http.routers.dashboard.middlewares: "tinyauth@docker"
+      # 🔥 ЦЕПОЧКА ЗАЩИТЫ ДАШБОРДА: Сначала ГЕОБЛОК, потом АВТОРИЗАЦИЯ 🔥
+      # geoblock-strict@file - только RU/NL
+      # tinyauth@docker - проверка пароля
+      traefik.http.routers.dashboard.middlewares: "geoblock-strict@file,tinyauth@docker"
 
-      # Сеть
       traefik.docker.network: "{{ traefik_docker_network }}"
 
     networks:
       - {{ traefik_docker_network }}
+
+volumes:
+  traefik_geodb:
 
 networks:
   {{ traefik_docker_network }}:

@@ -8,7 +8,7 @@ services:
       NGINX_PORT: "{{ amnezia_nginx_port }}"
       # Переменные можно не передавать, скрипт сам поставит дефолтные.
       # Nginx все равно будет использовать НАШ конфиг без auth.
-      
+
       AUTO_START_SERVERS: "{{ amnezia_auto_start_servers }}"
       DEFAULT_MTU: "{{ amnezia_default_mtu }}"
       DEFAULT_SUBNET: "{{ amnezia_default_subnet }}"
@@ -62,9 +62,9 @@ services:
       traefik.http.routers.{{ amnezia_service_name }}.tls: "true"
       traefik.http.routers.{{ amnezia_service_name }}.tls.certresolver: "letsencrypt"
       traefik.http.routers.{{ amnezia_service_name }}.service: "{{ amnezia_service_name }}"
-      
-      # 🔥 ЗАЩИТА TINYAUTH 🔥
-      traefik.http.routers.{{ amnezia_service_name }}.middlewares: "tinyauth@docker"
+
+      # 🔥 ЗАЩИТА: GEOBLOCK + TINYAUTH 🔥
+      traefik.http.routers.{{ amnezia_service_name }}.middlewares: "geoblock-strict@file,tinyauth@docker"
 
       # Сервис
       traefik.http.services.{{ amnezia_service_name }}.loadbalancer.server.port: "{{ amnezia_nginx_port }}"

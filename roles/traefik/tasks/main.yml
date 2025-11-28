@@ -3,33 +3,58 @@
   ansible.builtin.file:
     path: "{{ traefik_data_dir }}"
     state: directory
-    owner: "{{ deploy_user }}"  # ← ДОБАВЬ
-    group: "{{ deploy_user }}"  # ← ДОБАВЬ
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
     mode: "0755"
 
 - name: Ensure Traefik compose directory exists
   ansible.builtin.file:
     path: "{{ traefik_compose_dir }}"
     state: directory
-    owner: "{{ deploy_user }}"  # ← ДОБАВЬ
-    group: "{{ deploy_user }}"  # ← ДОБАВЬ
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
     mode: "0755"
 
 - name: Ensure acme.json exists with correct permissions
   ansible.builtin.file:
     path: "{{ traefik_data_dir }}/acme.json"
     state: touch
-    owner: "{{ deploy_user }}"  # ← ДОБАВЬ
-    group: "{{ deploy_user }}"  # ← ДОБАВЬ
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
     mode: "0600"
     modification_time: preserve
     access_time: preserve
+
+# 👇 НОВЫЕ ЗАДАЧИ ДЛЯ КОНФИГОВ 👇
+
+- name: Render Traefik static configuration (traefik.yml)
+  ansible.builtin.template:
+    src: traefik.yml.j2
+    dest: "{{ traefik_data_dir }}/traefik.yml"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0644"
+  notify: Restart Traefik
+
+- name: Render Traefik dynamic configuration (dynamic_conf.yml)
+  ansible.builtin.template:
+    src: dynamic_conf.yml.j2
+    dest: "{{ traefik_data_dir }}/dynamic_conf.yml"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0644"
+  notify: Restart Traefik
+
+# 👆 КОНЕЦ НОВЫХ ЗАДАЧ 👆
 
 - name: Render Traefik docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ traefik_compose_dir }}/docker-compose.yml"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
     mode: "0644"
+  notify: Restart Traefik
 
 - name: Start Traefik stack
   community.docker.docker_compose_v2:

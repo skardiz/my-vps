@@ -14,14 +14,14 @@ services:
       # PocketID OAuth configuration
       PROVIDERS_POCKETID_CLIENT_ID: "{{ tinyauth_pocketid_client_id }}"
       PROVIDERS_POCKETID_CLIENT_SECRET: "{{ tinyauth_pocketid_client_secret }}"
-      
+
       # URL для браузера (редирект на логин)
       PROVIDERS_POCKETID_AUTH_URL: "{{ tinyauth_pocketid_public_url }}/authorize"
-      
+
       # URL для сервера (обмен кода на токен внутри Docker сети)
       PROVIDERS_POCKETID_TOKEN_URL: "{{ tinyauth_pocketid_internal_url }}/api/oidc/token"
       PROVIDERS_POCKETID_USER_INFO_URL: "{{ tinyauth_pocketid_internal_url }}/api/oidc/userinfo"
-      
+
       PROVIDERS_POCKETID_REDIRECT_URL: "https://{{ tinyauth_domain }}/api/oauth/callback/pocketid"
       PROVIDERS_POCKETID_SCOPES: "openid email profile groups"
       PROVIDERS_POCKETID_NAME: "Pocket ID"
@@ -41,6 +41,9 @@ services:
       traefik.http.routers.{{ tinyauth_service_name }}.tls: "true"
       traefik.http.routers.{{ tinyauth_service_name }}.tls.certresolver: "letsencrypt"
       traefik.http.routers.{{ tinyauth_service_name }}.service: "{{ tinyauth_service_name }}"
+
+      # 🔒 ЗАЩИТА: ТОЛЬКО GEOBLOCK 🔒
+      traefik.http.routers.{{ tinyauth_service_name }}.middlewares: "geoblock-strict@file"
 
       # Service
       traefik.http.services.{{ tinyauth_service_name }}.loadbalancer.server.port: "{{ tinyauth_port }}"

@@ -1,0 +1,51 @@
+http:
+  middlewares:
+    # 🔒 СТРОГИЙ РЕЖИМ (Только RU + NL)
+    # Для админок, VPN, PocketID
+    geoblock-strict:
+      plugin:
+        geoblock:
+          enabled: true
+          defaultAllow: false # Запретить всех, кого нет в списке
+          
+          databaseFilePath: "" 
+          databaseAutoUpdate: true
+          databaseAutoUpdateDir: "/data/ip2database"
+          allowPrivate: true
+
+          # Только свои
+          allowedCountries:
+            - "RU"
+            - "NL"
+
+          # Кого блокируем (для перестраховки)
+          blockedCountries:
+            - "CN"
+
+          ipHeaders: ["x-forwarded-for", "remoteAddress"]
+          ipHeaderStrategy: "CheckFirstNonePrivate"
+          disallowedStatusCode: 403
+
+    # 🌍 ЛЕГКИЙ РЕЖИМ (Весь мир без Китая)
+    # Для Блога (если хочешь пускать Европу)
+    geoblock-blog:
+      plugin:
+        geoblock:
+          enabled: true
+          defaultAllow: true # Разрешить всех по умолчанию
+          
+          databaseFilePath: "" 
+          databaseAutoUpdate: true
+          databaseAutoUpdateDir: "/data/ip2database"
+          allowPrivate: true
+
+          # Кого БАНИМ
+          blockedCountries:
+            - "CN" # Китай
+            - "IN" # Индия
+            - "VN" # Вьетнам
+            - "BR" # Бразилия
+
+          ipHeaders: ["x-forwarded-for", "remoteAddress"]
+          ipHeaderStrategy: "CheckFirstNonePrivate"
+          disallowedStatusCode: 403
