@@ -1,0 +1,44 @@
+---
+- name: Validate required variables for docker_service
+  ansible.builtin.assert:
+    that:
+      - common_docker_service_name is defined
+      - common_docker_service_dir is defined
+      - common_docker_service_compose_template is defined
+    fail_msg: "CRITICAL ERROR: '{{ common_docker_service_name | default('Unknown') }}' is missing required variables!"
+  check_mode: false
+
+- name: "Ensure directories exist for {{ common_docker_service_name }}"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"
+  loop: "{{ common_docker_service_data_dirs | default([common_docker_service_dir]) }}"
+  become: true
+
+- name: "Render docker-compose.yml for {{ common_docker_service_name }}"
+  ansible.builtin.template:
+    src: "{{ common_docker_service_compose_template }}"
+    dest: "{{ common_docker_service_dir }}/docker-compose.yml"
+    mode: "0644"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+  become: true
+
+- name: "Pull images for {{ common_docker_service_name }}"
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ common_docker_service_dir }}"
+  become: true
+  become_user: "{{ deploy_user }}"
+  when: common_docker_service_pull_images | default(true)
+  tags: [pull]
+
+- name: "Start stack for {{ common_docker_service_name }}"
+  community.docker.docker_compose_v2:
+    project_src: "{{ common_docker_service_dir }}"
+    state: present
+    remove_orphans: true
+  become: true
+  become_user: "{{ deploy_user }}"

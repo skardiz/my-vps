@@ -5,80 +5,29 @@
     name: OpenSSH
     comment: 'SSH rate limited'
 
-- name: Allow HTTP (port 80) for Let's Encrypt
+- name: Allow required ports through UFW
   community.general.ufw:
     rule: allow
-    port: 80
-    proto: tcp
-
-- name: Allow HTTPS (port 443)
-  community.general.ufw:
-    rule: allow
-    port: 443
-    proto: tcp
-
-- name: Allow AmneziaWG UDP port
-  community.general.ufw:
-    rule: allow
-    port: 51820
-    proto: udp
-    comment: 'AmneziaWG UDP'
-
-- name: Allow iperf3 TCP port
-  community.general.ufw:
-    rule: allow
-    port: 5201
-    proto: tcp
-    comment: 'iperf3 TCP'
-
-- name: Allow iperf3 UDP port
-  community.general.ufw:
-    rule: allow
-    port: 5201
-    proto: udp
-    comment: 'iperf3 UDP'
-
-- name: Allow Syncthing TCP port
-  community.general.ufw:
-    rule: allow
-    port: 22000
-    proto: tcp
-    comment: 'Syncthing TCP'
-
-- name: Allow Syncthing UDP port
-  community.general.ufw:
-    rule: allow
-    port: 22000
-    proto: udp
-    comment: 'Syncthing UDP'
-
-- name: Allow Syncthing Discovery UDP port
-  community.general.ufw:
-    rule: allow
-    port: 21027
-    proto: udp
-    comment: 'Syncthing Discovery'
-
-- name: Allow TURN Signaling (3478 UDP)
-  community.general.ufw:
-    rule: allow
-    port: 3478
-    proto: udp
-    comment: 'TURN Signaling UDP'
-
-- name: Allow TURN Signaling (3478 TCP)
-  community.general.ufw:
-    rule: allow
-    port: 3478
-    proto: tcp
-    comment: 'TURN Signaling TCP'
-
-- name: Allow TURN Relay Range (UDP)
-  community.general.ufw:
-    rule: allow
-    port: 49152:49200
-    proto: udp
-    comment: 'TURN Relay Media'
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop:
+    # Web
+    - { port: "80", proto: "tcp", comment: "HTTP (LetsEncrypt)" }
+    - { port: "443", proto: "tcp", comment: "HTTPS" }
+    # VPN
+    - { port: "51820", proto: "udp", comment: "AmneziaWG UDP" }
+    # Utils
+    - { port: "5201", proto: "tcp", comment: "iperf3 TCP" }
+    - { port: "5201", proto: "udp", comment: "iperf3 UDP" }
+    # Syncthing
+    - { port: "22000", proto: "tcp", comment: "Syncthing TCP" }
+    - { port: "22000", proto: "udp", comment: "Syncthing UDP" }
+    - { port: "21027", proto: "udp", comment: "Syncthing Discovery" }
+    # TURN Server (Eturnal)
+    - { port: "3478", proto: "udp", comment: "TURN Signaling UDP" }
+    - { port: "3478", proto: "tcp", comment: "TURN Signaling TCP" }
+    - { port: "49152:49200", proto: "udp", comment: "TURN Relay Media" }
 
 - name: Enable UFW with default deny
   community.general.ufw:

@@ -1,25 +1,9 @@
 ---
-- name: Create Autoheal directory
-  ansible.builtin.file:
-    path: /opt/autoheal
-    state: directory
-    mode: '0755'
-    owner: "{{ deploy_user }}"
-    group: "{{ deploy_user }}"
-  become: true
-
-- name: Deploy Autoheal compose
-  ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: /opt/autoheal/docker-compose.yml
-    mode: '0644'
-    owner: "{{ deploy_user }}"
-    group: "{{ deploy_user }}"
-  notify: Restart Autoheal
-
-- name: Start Autoheal
-  community.docker.docker_compose_v2:
-    project_src: /opt/autoheal
-    state: present
-  become: true
-  become_user: "{{ deploy_user }}"
+- name: Deploy Autoheal
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: docker_service
+  vars:
+    common_docker_service_name: "Autoheal"
+    common_docker_service_dir: "/opt/autoheal"
+    common_docker_service_compose_template: "{{ playbook_dir }}/roles/autoheal/templates/docker-compose.yml.j2"

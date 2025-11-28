@@ -13,19 +13,15 @@
     src: eturnal.yml.j2
     dest: "{{ eturnal_config_dir }}/eturnal.yml"
     mode: "0644"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
   become: true
 
-- name: Render Docker Compose
-  ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: "{{ eturnal_config_dir }}/docker-compose.yml"
-    mode: "0644"
-  become: true
-
-- name: Start Eturnal
-  community.docker.docker_compose_v2:
-    project_src: "{{ eturnal_config_dir }}"
-    state: present
-    remove_orphans: true
-  become: true
-  become_user: "{{ deploy_user }}"
+- name: Deploy Eturnal Docker
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: docker_service
+  vars:
+    common_docker_service_name: "Eturnal"
+    common_docker_service_dir: "{{ eturnal_config_dir }}"
+    common_docker_service_compose_template: "{{ playbook_dir }}/roles/eturnal/templates/docker-compose.yml.j2"

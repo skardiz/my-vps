@@ -1,22 +1,9 @@
 ---
-- name: Ensure TinyAuth compose directory exists
-  ansible.builtin.file:
-    path: "{{ tinyauth_compose_dir }}"
-    state: directory
-    owner: "{{ deploy_user }}"
-    group: "{{ deploy_user }}"
-    mode: "0755"
-
-- name: Render TinyAuth docker-compose.yml
-  ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: "{{ tinyauth_compose_dir }}/docker-compose.yml"
-    mode: "0644"
-
-- name: Start TinyAuth stack
-  community.docker.docker_compose_v2:
-    project_src: "{{ tinyauth_compose_dir }}"
-    state: present
-    remove_orphans: true
-  become: true
-  become_user: "{{ deploy_user }}"
+- name: Deploy TinyAuth
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: docker_service
+  vars:
+    common_docker_service_name: "TinyAuth"
+    common_docker_service_dir: "{{ tinyauth_compose_dir }}"
+    common_docker_service_compose_template: "{{ playbook_dir }}/roles/tinyauth/templates/docker-compose.yml.j2"

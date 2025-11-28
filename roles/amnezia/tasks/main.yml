@@ -9,23 +9,22 @@
   loop:
     - "{{ amnezia_data_dir }}"
     - "{{ amnezia_compose_dir }}"
+  become: true
 
-- name: Render custom Nginx config for Amnezia (No Auth)
+- name: Render custom Nginx config
   ansible.builtin.template:
     src: nginx_default.conf.j2
     dest: "{{ amnezia_data_dir }}/nginx_default.conf"
     mode: "0644"
-
-- name: Render Amnezia docker-compose.yml
-  ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: "{{ amnezia_compose_dir }}/docker-compose.yml"
-    mode: "0644"
-
-- name: Start Amnezia stack
-  community.docker.docker_compose_v2:
-    project_src: "{{ amnezia_compose_dir }}"
-    state: present
-    remove_orphans: true
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
   become: true
-  become_user: "{{ deploy_user }}"
+
+- name: Deploy Amnezia Docker
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: docker_service
+  vars:
+    common_docker_service_name: "AmneziaWG"
+    common_docker_service_dir: "{{ amnezia_compose_dir }}"
+    common_docker_service_compose_template: "{{ playbook_dir }}/roles/amnezia/templates/docker-compose.yml.j2"
