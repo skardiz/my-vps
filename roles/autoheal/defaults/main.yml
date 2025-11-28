@@ -1,5 +1,8 @@
 ---
+autoheal_service_name: "autoheal"
 autoheal_image: "willfarrell/autoheal:latest"
+autoheal_compose_dir: "/opt/autoheal"
+
 autoheal_interval: 60
 autoheal_start_period: 60
 autoheal_stop_timeout: 10

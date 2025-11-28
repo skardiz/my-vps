@@ -4,6 +4,6 @@
     name: common
     tasks_from: docker_service
   vars:
-    common_docker_service_name: "Autoheal"
-    common_docker_service_dir: "/opt/autoheal"
+    common_docker_service_name: "{{ autoheal_service_name }}"
+    common_docker_service_dir: "{{ autoheal_compose_dir }}"
     common_docker_service_compose_template: "{{ playbook_dir }}/roles/autoheal/templates/docker-compose.yml.j2"

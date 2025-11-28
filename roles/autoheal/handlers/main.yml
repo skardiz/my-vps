@@ -1,7 +1,0 @@
----
-- name: Restart Autoheal
-  community.docker.docker_compose_v2:
-    project_src: /opt/autoheal
-    state: restarted
-  become: true
-  become_user: "{{ deploy_user }}"

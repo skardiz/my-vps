@@ -4,4 +4,3 @@
     project_src: "{{ traefik_compose_dir }}"
     state: restarted
   become: true
-  become_user: "{{ deploy_user }}"
