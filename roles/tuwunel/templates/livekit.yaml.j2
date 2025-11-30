@@ -1,0 +1,23 @@
+port: {{ tuwunel_livekit_http_port }}
+bind_addresses:
+  - ""
+
+rtc:
+  node_ip: "{{ ansible_default_ipv4.address }}"
+  tcp_port: {{ tuwunel_livekit_tcp_port }}
+  port_range_start: {{ tuwunel_livekit_udp_start }}
+  port_range_end: {{ tuwunel_livekit_udp_end }}
+  use_external_ip: true
+  enable_loopback_candidate: false
+
+keys:
+  {{ tuwunel_livekit_key }}: {{ tuwunel_livekit_secret }}
+
+# Logging - DEBUG для troubleshooting
+logging:
+  level: debug
+  sample: false
+
+# TURN отключен
+turn:
+  enabled: false

@@ -1,0 +1,55 @@
+---
+# Service names (можешь поменять)
+tuwunel_service_name: "tuwunel"
+tuwunel_livekit_service_name: "livekit"
+tuwunel_jwt_service_name: "lk-jwt-service"
+
+# Directories
+tuwunel_compose_dir: "{{ docker_config_dir }}/{{ tuwunel_service_name }}"
+tuwunel_data_dir: "{{ docker_data_dir }}/{{ tuwunel_service_name }}"
+tuwunel_livekit_dir: "{{ tuwunel_compose_dir }}/livekit"
+
+# Docker images
+tuwunel_image: "docker.io/jevolk/tuwunel:latest"
+tuwunel_livekit_image: "livekit/livekit-server:latest"
+tuwunel_jwt_image: "ghcr.io/element-hq/lk-jwt-service:latest"
+
+# Domain configuration
+tuwunel_domain: "{{ matrix_domain | default('matrix.' ~ base_domain) }}"
+tuwunel_server_name: "{{ tuwunel_domain }}"
+tuwunel_livekit_domain: "livekit.{{ base_domain }}"
+tuwunel_livekit_url: "ws://{{ tuwunel_livekit_service_name }}:{{ tuwunel_livekit_http_port }}"
+
+# Ports
+tuwunel_port: 8008
+tuwunel_livekit_http_port: 7880
+tuwunel_livekit_tcp_port: 7881
+tuwunel_livekit_udp_start: 50000
+tuwunel_livekit_udp_end: 50999
+tuwunel_jwt_port: 8081
+
+# Features
+tuwunel_livekit_enabled: true
+tuwunel_allow_registration: false
+tuwunel_allow_federation: true
+tuwunel_allow_encryption: true
+
+# Secrets (переопредели в vault.yml!)
+tuwunel_registration_token: "{{ vault_tuwunel_registration_token | default('') }}"
+tuwunel_livekit_key: "{{ vault_tuwunel_livekit_key }}"
+tuwunel_livekit_secret: "{{ vault_tuwunel_livekit_secret }}"
+
+# TURN - disabled (не нужен в большинстве случаев)
+tuwunel_turn_enabled: false
+tuwunel_turn_uris: []
+tuwunel_turn_secret: ""
+
+# Traefik (адаптировано под твою инфраструктуру)
+tuwunel_docker_network: "{{ docker_network_name }}"
+tuwunel_traefik_entrypoint: "websecure"
+tuwunel_traefik_certresolver: "letsencrypt"
+
+# Performance
+tuwunel_max_request_size: 20971520
+tuwunel_ulimit_nofile_soft: 1048567
+tuwunel_ulimit_nofile_hard: 1048567

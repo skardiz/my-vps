@@ -5,7 +5,7 @@ ping:
   entryPoint: "traefik"
 
 log:
-  level: INFO
+  level: DEBUG
 
 entryPoints:
   web:
@@ -15,8 +15,15 @@ entryPoints:
         entryPoint:
           to: websecure
           scheme: https
+  
   websecure:
     address: ":{{ traefik_https_port }}"
+    http:
+      tls:
+        certResolver: letsencrypt
+  
+  matrix-federation:
+    address: ":8448"
     http:
       tls:
         certResolver: letsencrypt

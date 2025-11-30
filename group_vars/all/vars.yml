@@ -18,3 +18,8 @@ default_timezone: "Europe/Moscow"
 # === КРЕДЫ ===
 admin_email: "{{ vault_admin_email }}"
 admin_password: "{{ vault_admin_password }}"
+
+# Tuwunel Matrix homeserver
+tuwunel_enabled: true
+matrix_domain: "matrix.{{ base_domain }}"
+tuwunel_livekit_enabled: true
