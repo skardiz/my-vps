@@ -1,3 +1,5 @@
+{% import playbook_dir ~ '/roles/utils/templates/traefik_macros.j2' as traefik %}
+
 services:
   {{ amnezia_service_name }}:
     container_name: {{ amnezia_service_name }}
@@ -7,6 +9,7 @@ services:
       resources:
         limits:
           memory: 256M
+    
     environment:
       NGINX_PORT: "{{ amnezia_nginx_port }}"
       AUTO_START_SERVERS: "{{ amnezia_auto_start_servers }}"
@@ -46,26 +49,12 @@ services:
       start_period: 15s
 
     labels:
-      traefik.enable: "true"
-      traefik.docker.network: "{{ docker_network_name }}"
-
-      # HTTP роутер
-      traefik.http.routers.{{ amnezia_service_name }}-http.rule: "Host(`{{ amnezia_domain }}`)"
-      traefik.http.routers.{{ amnezia_service_name }}-http.entrypoints: "web"
-      traefik.http.routers.{{ amnezia_service_name }}-http.service: "{{ amnezia_service_name }}"
-
-      # HTTPS роутер
-      traefik.http.routers.{{ amnezia_service_name }}.rule: "Host(`{{ amnezia_domain }}`)"
-      traefik.http.routers.{{ amnezia_service_name }}.entrypoints: "websecure"
-      traefik.http.routers.{{ amnezia_service_name }}.tls: "true"
-      traefik.http.routers.{{ amnezia_service_name }}.tls.certresolver: "letsencrypt"
-      traefik.http.routers.{{ amnezia_service_name }}.service: "{{ amnezia_service_name }}"
-
-      # 🔥 ЗАЩИТА: GEOBLOCK + TINYAUTH 🔥
-      traefik.http.routers.{{ amnezia_service_name }}.middlewares: "geoblock-strict@file,tinyauth@docker"
-
-      # Сервис
-      traefik.http.services.{{ amnezia_service_name }}.loadbalancer.server.port: "{{ amnezia_nginx_port }}"
+{{ traefik.web(
+     service=amnezia_service_name,
+     host=amnezia_domain,
+     port=amnezia_nginx_port,
+     middlewares="geoblock-strict@file,tinyauth@docker"
+   ) | indent(6) }}
 
     networks:
       - {{ docker_network_name }}

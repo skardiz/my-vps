@@ -1,3 +1,5 @@
+{% import playbook_dir ~ '/roles/utils/templates/traefik_macros.j2' as traefik %}
+
 services:
   {{ syncthing_service_name }}:
     container_name: {{ syncthing_service_name }}
@@ -31,26 +33,12 @@ services:
       start_period: 1m
 
     labels:
-      traefik.enable: "true"
-      traefik.docker.network: "{{ docker_network_name }}"
-
-      # HTTP роутер
-      traefik.http.routers.{{ syncthing_service_name }}-http.rule: "Host(`{{ syncthing_domain }}`)"
-      traefik.http.routers.{{ syncthing_service_name }}-http.entrypoints: "web"
-      traefik.http.routers.{{ syncthing_service_name }}-http.service: "{{ syncthing_service_name }}"
-
-      # HTTPS роутер
-      traefik.http.routers.{{ syncthing_service_name }}.rule: "Host(`{{ syncthing_domain }}`)"
-      traefik.http.routers.{{ syncthing_service_name }}.entrypoints: "websecure"
-      traefik.http.routers.{{ syncthing_service_name }}.tls: "true"
-      traefik.http.routers.{{ syncthing_service_name }}.tls.certresolver: "letsencrypt"
-      traefik.http.routers.{{ syncthing_service_name }}.service: "{{ syncthing_service_name }}"
-
-      # 🔥 ЗАЩИТА: GEOBLOCK + TINYAUTH 🔥
-      traefik.http.routers.{{ syncthing_service_name }}.middlewares: "geoblock-strict@file,tinyauth@docker"
-
-      # Сервис
-      traefik.http.services.{{ syncthing_service_name }}.loadbalancer.server.port: "{{ syncthing_web_port }}"
+{{ traefik.web(
+     service=syncthing_service_name,
+     host=syncthing_domain,
+     port=syncthing_web_port,
+     middlewares="geoblock-strict@file,tinyauth@docker"
+   ) | indent(6) }}
 
     networks:
       - {{ docker_network_name }}

@@ -1,3 +1,5 @@
+{% import playbook_dir ~ '/roles/utils/templates/traefik_macros.j2' as traefik %}
+
 services:
   {{ vaultwarden_service_name }}:
     image: {{ vaultwarden_image }}
@@ -24,9 +26,7 @@ services:
       - LOG_LEVEL={{ vaultwarden_log_level }}
       - ADMIN_TOKEN={{ vaultwarden_admin_token }}
 
-    # 🔥 HEALTHCHECK
     healthcheck:
-      # Проверяем доступность основного порта
       test: ["CMD", "curl", "-f", "http://localhost:80/alive"]
       interval: 30s
       timeout: 10s
@@ -34,28 +34,25 @@ services:
       start_period: 20s
 
     labels:
-      traefik.enable: "true"
-      traefik.docker.network: "{{ vaultwarden_docker_network }}"
+      # 1. Основной Веб-интерфейс (через макрос)
+{{ traefik.web(
+     service=vaultwarden_service_name,
+     host=vaultwarden_domain,
+     port=vaultwarden_port_http,
+     middlewares="geoblock-strict@file"
+   ) | indent(6) }}
 
-      # --- Main Router ---
-      traefik.http.routers.{{ vaultwarden_service_name }}.rule: "Host(`{{ vaultwarden_domain }}`)"
-      traefik.http.routers.{{ vaultwarden_service_name }}.entrypoints: "{{ vaultwarden_traefik_entrypoint }}"
-      traefik.http.routers.{{ vaultwarden_service_name }}.tls: "true"
-      traefik.http.routers.{{ vaultwarden_service_name }}.tls.certresolver: "{{ vaultwarden_traefik_certresolver }}"
-      traefik.http.routers.{{ vaultwarden_service_name }}.service: "{{ vaultwarden_service_name }}"
-      traefik.http.routers.{{ vaultwarden_service_name }}.middlewares: "geoblock-strict@file"
-      traefik.http.services.{{ vaultwarden_service_name }}.loadbalancer.server.port: "{{ vaultwarden_port_http }}"
-
-      # --- WebSocket Router ---
+      # 2. WebSocket Router (ручная настройка)
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.rule: "Host(`{{ vaultwarden_domain }}`) && Path(`/notifications/hub`)"
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.entrypoints: "{{ vaultwarden_traefik_entrypoint }}"
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.tls: "true"
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.tls.certresolver: "{{ vaultwarden_traefik_certresolver }}"
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.service: "{{ vaultwarden_service_name }}-ws"
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.middlewares: "geoblock-strict@file"
+      
       traefik.http.services.{{ vaultwarden_service_name }}-ws.loadbalancer.server.port: "{{ vaultwarden_port_ws }}"
 
-      # Traefik Healthcheck (чтобы Траефик не слал трафик в мертвый контейнер)
+      # 3. Healthcheck для Traefik
       traefik.http.services.{{ vaultwarden_service_name }}.loadbalancer.healthcheck.path: "/alive"
       traefik.http.services.{{ vaultwarden_service_name }}.loadbalancer.healthcheck.interval: "10s"
       traefik.http.services.{{ vaultwarden_service_name }}.loadbalancer.healthcheck.timeout: "5s"
