@@ -193,3 +193,19 @@
     common_docker_service_compose_template: "{{ playbook_dir }}/roles/identity/templates/docker-compose.yml.j2"
   when: identity_tinyauth_dynamic_secret is defined
   tags: [deploy, identity, bootstrap, magic]
+
+# Новый таск: Генерируем и показываем свежую ссылку для входа
+- name: Generate Fresh One-Time Login Link for Admin
+  ansible.builtin.command:
+    cmd: docker exec pocketid /app/pocket-id one-time-access-token {{ identity_lldap_admin_dn }}
+  register: identity_login_link
+  changed_when: false
+  tags: [deploy, identity, token]
+
+- name: Display PocketID Login Link
+  ansible.builtin.debug:
+    msg:
+      - "🔐 Login to PocketID Admin Console:"
+      - "{{ identity_login_link.stdout }}"
+      - "This link is valid for one-time use only."
+  tags: [deploy, identity, token]
