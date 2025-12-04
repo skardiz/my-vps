@@ -1,0 +1,37 @@
+---
+# Service names
+vaultwarden_service_name: "vaultwarden"
+
+# Directories
+vaultwarden_base_dir: "{{ docker_config_dir }}/{{ vaultwarden_service_name }}"
+vaultwarden_data_dir: "{{ docker_data_dir }}/{{ vaultwarden_service_name }}"
+
+# Docker images
+vaultwarden_image: "vaultwarden/server:latest"
+
+# Domains
+vaultwarden_domain: "vault.{{ base_domain }}"
+
+# Ports
+vaultwarden_port_http: 80
+vaultwarden_port_ws: 3012
+
+# Config
+vaultwarden_signups_allowed: true
+vaultwarden_invitations_allowed: true
+vaultwarden_show_password_hint: false
+vaultwarden_websocket_enabled: true
+
+# Secrets
+vaultwarden_admin_token: "{{ vault_vaultwarden.admin_token | default('') }}"
+
+# Traefik
+vaultwarden_docker_network: "{{ docker_network_name }}"
+vaultwarden_traefik_entrypoint: "websecure"
+vaultwarden_traefik_certresolver: "letsencrypt"
+
+# Performance
+vaultwarden_memory_limit: "256M"
+
+# Logging
+vaultwarden_log_level: "info"
