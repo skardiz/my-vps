@@ -1,4 +1,4 @@
-{% import playbook_dir ~ '/roles/utils/templates/traefik_macros.j2' as traefik %}
+{% import 'traefik_macros.j2' as traefik %}
 
 services:
   {{ amnezia_service_name }}:
@@ -9,7 +9,7 @@ services:
       resources:
         limits:
           memory: 256M
-    
+
     environment:
       NGINX_PORT: "{{ amnezia_nginx_port }}"
       AUTO_START_SERVERS: "{{ amnezia_auto_start_servers }}"
@@ -53,8 +53,9 @@ services:
      service=amnezia_service_name,
      host=amnezia_domain,
      port=amnezia_nginx_port,
+     network=docker_network_name,
      middlewares="geoblock-strict@file,tinyauth@docker"
-   ) | indent(6) }}
+   ) | indent(6, first=True) }}
 
     networks:
       - {{ docker_network_name }}

@@ -1,8 +1,8 @@
 {# roles/utils/templates/traefik_macros.j2 #}
 
-{%- macro web(service, host, port, middlewares='', entrypoint='websecure', resolver='letsencrypt') -%}
+{%- macro web(service, host, port, network, middlewares='', entrypoint='websecure', resolver='letsencrypt') -%}
 traefik.enable: "true"
-traefik.docker.network: "{{ docker_network_name }}"
+traefik.docker.network: "{{ network }}"
 
 # HTTP Router (Redirect to HTTPS)
 traefik.http.routers.{{ service }}-http.rule: "Host(`{{ host }}`)"

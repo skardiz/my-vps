@@ -16,7 +16,6 @@
     state: directory
     owner: "{{ utils_docker_service_owner | default(deploy_user) }}"
     group: "{{ utils_docker_service_group | default(deploy_user) }}"
-    mode: "0755"
   loop: "{{
       [
         utils_docker_service_dir,

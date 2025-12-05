@@ -1,4 +1,4 @@
-{% import playbook_dir ~ '/roles/utils/templates/traefik_macros.j2' as traefik %}
+{% import 'traefik_macros.j2' as traefik %}
 
 services:
   # 1. LLDAP (Backend)
@@ -34,15 +34,16 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
-    
+
     labels:
 {{ traefik.web(
      service="lldap",
      host=identity_lldap_domain,
      port=identity_lldap_port_http,
+     network=docker_network_name,
      middlewares="geoblock-strict@file"
-   ) | indent(6) }}
-    
+   ) | indent(6, first=True) }}
+
     networks:
       - {{ docker_network_name }}
 
@@ -102,14 +103,15 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    
+
     labels:
 {{ traefik.web(
      service="pocketid",
      host=identity_pocketid_domain,
      port=identity_pocketid_port,
+     network=docker_network_name,
      middlewares="geoblock-strict@file"
-   ) | indent(6) }}
+   ) | indent(6, first=True) }}
 
     networks:
       - {{ docker_network_name }}
@@ -144,20 +146,21 @@ services:
       PROVIDERS_POCKETID_REDIRECT_URL: "https://{{ identity_tinyauth_domain }}/api/oauth/callback/pocketid"
       PROVIDERS_POCKETID_SCOPES: "openid email profile groups"
       PROVIDERS_POCKETID_NAME: "Pocket ID"
-    
+
     labels:
 {{ traefik.web(
      service="tinyauth",
      host=identity_tinyauth_domain,
      port=identity_tinyauth_port,
+     network=docker_network_name,
      middlewares="geoblock-strict@file"
-   ) | indent(6) }}
+   ) | indent(6, first=True) }}
 
       # Специфичные настройки для ForwardAuth (не входят в макрос)
       traefik.http.middlewares.tinyauth.forwardauth.address: "http://tinyauth:{{ identity_tinyauth_port }}/api/auth/traefik"
       traefik.http.middlewares.tinyauth.forwardauth.trustForwardHeader: "true"
       traefik.http.middlewares.tinyauth.forwardauth.authResponseHeaders: "X-User,X-Email,X-Groups"
-    
+
     networks:
       - {{ docker_network_name }}
 

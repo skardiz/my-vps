@@ -1,4 +1,4 @@
-{% import playbook_dir ~ '/roles/utils/templates/traefik_macros.j2' as traefik %}
+{% import 'traefik_macros.j2' as traefik %}
 
 services:
   {{ syncthing_service_name }}:
@@ -37,8 +37,9 @@ services:
      service=syncthing_service_name,
      host=syncthing_domain,
      port=syncthing_web_port,
+     network=docker_network_name,
      middlewares="geoblock-strict@file,tinyauth@docker"
-   ) | indent(6) }}
+   ) | indent(6, first=True) }}
 
     networks:
       - {{ docker_network_name }}

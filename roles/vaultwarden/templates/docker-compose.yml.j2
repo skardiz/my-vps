@@ -1,4 +1,4 @@
-{% import playbook_dir ~ '/roles/utils/templates/traefik_macros.j2' as traefik %}
+{% import 'traefik_macros.j2' as traefik %}
 
 services:
   {{ vaultwarden_service_name }}:
@@ -39,8 +39,9 @@ services:
      service=vaultwarden_service_name,
      host=vaultwarden_domain,
      port=vaultwarden_port_http,
+     network=vaultwarden_docker_network,
      middlewares="geoblock-strict@file"
-   ) | indent(6) }}
+   ) | indent(6, first=True) }}
 
       # 2. WebSocket Router (ручная настройка)
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.rule: "Host(`{{ vaultwarden_domain }}`) && Path(`/notifications/hub`)"
@@ -49,7 +50,7 @@ services:
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.tls.certresolver: "{{ vaultwarden_traefik_certresolver }}"
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.service: "{{ vaultwarden_service_name }}-ws"
       traefik.http.routers.{{ vaultwarden_service_name }}-ws.middlewares: "geoblock-strict@file"
-      
+
       traefik.http.services.{{ vaultwarden_service_name }}-ws.loadbalancer.server.port: "{{ vaultwarden_port_ws }}"
 
       # 3. Healthcheck для Traefik
