@@ -1,18 +1,33 @@
 ---
-# [ Service & Paths ]
+# [ Service Identity ]
 caddy_service_name: "caddy"
-caddy_base_dir: "{{ docker_base_dir }}/{{ caddy_service_name }}"
-caddy_config_dir: "{{ caddy_base_dir }}/config"
-caddy_data_dir: "{{ caddy_base_dir }}/data"
+caddy_container_name: "{{ caddy_service_name }}"
+
+# [ Paths & Directories ]
+caddy_compose_dir: "{{ docker_base_dir }}/{{ caddy_service_name }}"
+caddy_config_dir: "{{ caddy_compose_dir }}/config"
+caddy_data_dir: "{{ caddy_compose_dir }}/data"
+
+# [ Network & Ports ]
+caddy_docker_network: "{{ docker_network_name }}"
+caddy_port_http: 80
+caddy_port_https: 443
+caddy_port_admin: 2019
 
 # [ Configuration ]
-caddy_acme_email: "{{ admin_email }}"
+caddy_acme_email: "{{ admin_email | default('admin@example.com') }}"
+caddy_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
+caddy_timezone: "{{ docker_timezone | default('UTC') }}"
+
+# [ Resources ]
+caddy_memory_limit: "{{ docker_memory_limit | default('256M') }}"
 
 # [ Build Versions ]
-caddy_version: "{{ default_docker_image_tag | default('2.8.4') }}"
+caddy_version: "2.8.4" # Fix stable version
 caddy_docker_proxy_version: "v2.9.1"
 
 # [ Healthcheck Strategy ]
+caddy_hc_enabled: true
 caddy_hc_interval: "{{ docker_hc_interval | default('30s') }}"
 caddy_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
 caddy_hc_retries: "{{ docker_hc_retries | default(3) }}"

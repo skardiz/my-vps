@@ -5,19 +5,19 @@
     tasks_from: docker_service
   vars:
     utils_docker_service_name: "{{ caddy_service_name }}"
-    utils_docker_service_dir: "{{ caddy_base_dir }}"
-
-    utils_docker_service_files:
-      - dest: "{{ caddy_base_dir }}/Dockerfile"
-        content: "{{ lookup('template', 'Dockerfile.j2') }}"
-      - dest: "{{ caddy_config_dir }}/Caddyfile"
-        content: "{{ lookup('template', 'Caddyfile.j2') }}"
-        force: true
-
+    utils_docker_service_dir: "{{ caddy_compose_dir }}"
     utils_docker_service_compose_template: "{{ playbook_dir }}/roles/caddy/templates/docker-compose.yml.j2"
 
+    # [ Config & Build Files ]
+    utils_docker_service_templates:
+      - src: Dockerfile.j2
+        dest: "{{ caddy_compose_dir }}/Dockerfile"
+      - src: Caddyfile.j2
+        dest: "{{ caddy_config_dir }}/Caddyfile"
+
+    # [ Build Strategy ]
     utils_docker_service_build:
-      name: "custom-caddy:{{ caddy_version }}"
-      path: "{{ caddy_base_dir }}"
+      name: "{{ caddy_service_name }}:local"
+      path: "{{ caddy_compose_dir }}"
       pull: true
       force: false

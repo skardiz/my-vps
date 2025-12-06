@@ -1,13 +1,13 @@
 services:
   worker:
-    image: {{ restic_image }}
-    container_name: {{ restic_service_name }}
+    image: "{{ restic_image }}:latest"
+    container_name: "{{ restic_container_name }}"
     hostname: "{{ ansible_hostname }}"
 
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: {{ restic_memory_limit }}
 
     environment:
       - RESTIC_REPOSITORY={{ restic_repo }}
@@ -18,10 +18,11 @@ services:
 
     volumes:
       - ./entrypoint.sh:/entrypoint.sh:ro
-      - ./config:/root/.config/rclone:rw
+      - "{{ restic_config_dir }}:/root/.config/rclone:rw"
 {% for mount in restic_mounts %}
       - {{ mount.src }}:{{ mount.dst }}:ro
 {% endfor %}
 
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    # Restart is managed by Systemd, not Docker
     restart: "no"

@@ -1,0 +1,59 @@
+services:
+  {{ template_service_name }}:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TEMPLATE_VERSION: "{{ template_version }}"
+
+    container_name: "{{ template_container_name }}"
+    restart: "{{ template_restart_policy }}"
+
+    deploy:
+      resources:
+        limits:
+          memory: {{ template_memory_limit }}
+
+    ports:
+      - "{{ template_port_example }}:80"
+
+    environment:
+      TEMPLATE_INGRESS_NETWORKS: "{{ template_docker_network }}"
+      ACME_EMAIL: "{{ template_acme_email }}"
+      TZ: "{{ template_timezone }}"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "{{ template_data_dir }}:/data"
+      - "{{ template_config_dir }}:/config"
+
+    networks:
+      - {{ template_docker_network }}
+
+{% if template_hc_enabled %}
+    healthcheck:
+      # Example healthcheck (adjust port/path)
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/health"]
+      interval: {{ template_hc_interval }}
+      timeout: {{ template_hc_timeout }}
+      retries: {{ template_hc_retries }}
+      start_period: {{ template_hc_start_period }}
+{% endif %}
+
+    labels:
+      # === CADDY CONFIGURATION ===
+      # 1. Basic Proxy
+      caddy: "{{ template_service_name }}.{{ base_domain }}"
+      caddy.reverse_proxy: "{{ template_container_name }}:80"
+      caddy.import: "secure-headers"
+      
+      # 2. Autoheal
+      # autoheal: "true"
+
+      # 3. Authentication Examples
+      # caddy.basicauth: "/*"
+      # caddy.basicauth.admin: "HASH..." 
+
+networks:
+  {{ template_docker_network }}:
+    external: true

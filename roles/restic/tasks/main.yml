@@ -1,4 +1,3 @@
-# roles/restic/tasks/main.yml
 ---
 - name: Deploy Restic Worker Container
   ansible.builtin.include_role:
@@ -7,50 +6,50 @@
   vars:
     utils_docker_service_name: "{{ restic_service_name }}"
     utils_docker_service_dir: "{{ restic_compose_dir }}"
+    # Fix: Absolute path to template
     utils_docker_service_compose_template: "{{ playbook_dir }}/roles/restic/templates/docker-compose.yml.j2"
 
-    # Не пулим (т.к. локальный) и не стартуем (т.к. worker)
+    # Don't pull (local build) and don't start (systemd managed)
     utils_docker_service_pull_images: false
     utils_docker_service_start: false
 
-    # Доп. папка для сборки
+    # Additional build dir
     utils_docker_service_data_dirs:
-      - "{{ restic_compose_dir }}/build"
+      - "{{ restic_build_dir }}"
 
-    # Файлы: Dockerfile и Config
+    # Files: Dockerfile and Config
     utils_docker_service_files:
-      - dest: "{{ restic_compose_dir }}/build/Dockerfile"
+      - dest: "{{ restic_build_dir }}/Dockerfile"
         content: |
-          FROM restic/restic:latest
+          FROM {{ restic_base_image }}:{{ restic_base_version }}
           RUN apk add --no-cache rclone ca-certificates
         mode: "0644"
 
-      # Секретный конфиг
-      - dest: "{{ restic_compose_dir }}/config/rclone.conf"
+      # Secret Rclone Config
+      - dest: "{{ restic_config_dir }}/rclone.conf"
         content: "{{ restic_rclone_config }}"
         mode: "0600"
         owner: root
         group: root
-        # ВАЖНО: Скрываем этот файл из логов
+        # Security: Hide content from logs
         no_log: true
 
-    # Шаблоны: Entrypoint
+    # Templates: Entrypoint
     utils_docker_service_templates:
       - src: entrypoint.sh.j2
         dest: "{{ restic_compose_dir }}/entrypoint.sh"
         mode: "0755"
 
-    # СБОРКА ОБРАЗА
-    # Utils соберет его сразу после создания файлов
+    # Build Image
     utils_docker_service_build:
       name: "{{ restic_image }}"
-      path: "{{ restic_compose_dir }}/build"
+      path: "{{ restic_build_dir }}"
       pull: true
       force: false
 
-# --- Специфичная логика Restic ---
+# --- Restic Specific Logic ---
 
-# Инициализация контейнера (create only)
+# Initialize container (create only)
 - name: Create Restic container (initialized but stopped)
   ansible.builtin.command:
     cmd: docker compose up --no-start --remove-orphans
@@ -81,8 +80,8 @@
     - restic-backup.timer
     - restic-check.timer
 
-# Уборка старого
-- name: Cleanup old rclone.conf
+# Cleanup
+- name: Cleanup old rclone.conf (if exists in root)
   ansible.builtin.file:
     path: "{{ restic_compose_dir }}/rclone.conf"
     state: absent

@@ -45,6 +45,9 @@
     state: started
     enabled: true
 
+- name: Configure Docker Daemon settings
+  ansible.builtin.import_tasks: daemon.yml
+
 - name: Add deploy user to docker group
   ansible.builtin.user:
     name: "{{ deploy_user }}"

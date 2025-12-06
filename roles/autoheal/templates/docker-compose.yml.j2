@@ -1,17 +1,28 @@
 services:
-  autoheal:
-    image: {{ autoheal_image }}
-    container_name: {{ autoheal_service_name }}
-    restart: unless-stopped
+  {{ autoheal_service_name }}:
+    image: "{{ autoheal_image }}:{{ autoheal_image_tag }}"
+    container_name: "{{ autoheal_container_name }}"
+    restart: "{{ autoheal_restart_policy }}"
+
     deploy:
       resources:
         limits:
-          memory: 64M
+          memory: {{ autoheal_memory_limit }}
+
     environment:
       AUTOHEAL_CONTAINER_LABEL: "{{ autoheal_container_label }}"
       AUTOHEAL_INTERVAL: "{{ autoheal_interval }}"
       AUTOHEAL_START_PERIOD: "{{ autoheal_start_period }}"
       AUTOHEAL_DEFAULT_STOP_TIMEOUT: "{{ autoheal_stop_timeout }}"
+      TZ: "{{ autoheal_timezone }}"
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f autoheal || exit 1"]
+      interval: {{ autoheal_hc_interval }}
+      timeout: {{ autoheal_hc_timeout }}
+      retries: {{ autoheal_hc_retries }}
+      start_period: {{ autoheal_hc_start_period }}

@@ -1,28 +1,43 @@
-# === ДОМЕН ===
+# === DOMAIN & INFRASTRUCTURE ===
 base_domain: "ziix.ru"
 
-# === DOCKER ===
+# === USERS ===
+deploy_user: "deploy"
+admin_username: "admin"
+
+# === CREDENTIALS ===
+admin_email: "{{ vault_infra.admin_email }}"
+admin_password: "{{ vault_infra.admin_password }}"
+
+# === DOCKER GLOBAL CONFIGURATION ===
 docker_base_dir: "/srv/docker"
 docker_network_name: "web"
+docker_restart_policy: "unless-stopped"
+
+# [ Defaults ]
 docker_image_tag: "latest"
+docker_memory_limit: "256M"
+docker_timezone: "Europe/Moscow"
+
+# [ User Permissions (LSIO style) ]
+docker_puid: "1000"
+docker_pgid: "1000"
+
+# [ Healthcheck Strategy ]
 docker_hc_interval: "60s"
 docker_hc_timeout: "10s"
 docker_hc_retries: 3
 docker_hc_start_period: "10s"
 
-# === ПОЛЬЗОВАТЕЛИ ===
-deploy_user: "deploy"
-admin_username: "admin"
+# === TUNING & RESOURCES ===
+swap_file_size: "4G"
+zram_percentage: "25"
 
-# === ОБЩИЕ НАСТРОЙКИ (для LSIO контейнеров) ===
-default_puid: "1000"
-default_pgid: "1000"
-default_timezone: "Europe/Moscow"
+# === NETWORK PORTS ===
+turn_relay_port_start: 49152
+turn_relay_port_end: 49200
 
-# === КРЕДЫ ===
-admin_email: "{{ vault_infra.admin_email }}"
-admin_password: "{{ vault_infra.admin_password }}"
-
+# === FEATURE FLAGS ===
 # Tuwunel Matrix homeserver
 tuwunel_enabled: true
 matrix_domain: "matrix.{{ base_domain }}"

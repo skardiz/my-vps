@@ -1,0 +1,36 @@
+---
+# [ Service Identity ]
+template_service_name: "template"
+template_container_name: "{{ template_service_name }}"
+template_image_name: "vendor/image" # Used in non-build template
+
+# [ Paths & Directories ]
+template_compose_dir: "{{ docker_base_dir }}/{{ template_service_name }}"
+template_config_dir: "{{ template_compose_dir }}/config"
+template_data_dir: "{{ template_compose_dir }}/data"
+
+# [ Network & Ports ]
+template_docker_network: "{{ docker_network_name }}"
+template_port_example: 80
+
+# [ Configuration ]
+template_acme_email: "{{ admin_email | default('admin@example.com') }}"
+template_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
+template_timezone: "{{ docker_timezone | default('UTC') }}"
+
+# [ Resources ]
+template_memory_limit: "{{ docker_memory_limit | default('256M') }}"
+
+# [ Build Versions ]
+template_version: "{{ docker_image_tag | default('latest') }}"
+
+# [ LSIO / Permissions (Optional) ]
+# template_puid: "{{ docker_puid | default('1000') }}"
+# template_pgid: "{{ docker_pgid | default('1000') }}"
+
+# [ Healthcheck Strategy ]
+template_hc_enabled: true
+template_hc_interval: "{{ docker_hc_interval | default('30s') }}"
+template_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
+template_hc_retries: "{{ docker_hc_retries | default(3) }}"
+template_hc_start_period: "{{ docker_hc_start_period | default('10s') }}"

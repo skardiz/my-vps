@@ -1,20 +1,20 @@
 services:
-  # 1. LLDAP (Backend)
+  # [ LLDAP ]
   lldap:
     container_name: lldap
-    image: {{ identity_lldap_image }}
-    restart: unless-stopped
+    image: "{{ identity_lldap_image }}:{{ identity_lldap_version }}"
+    restart: "{{ identity_restart_policy }}"
     security_opt:
       - no-new-privileges:true
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: {{ identity_lldap_memory_limit }}
           cpus: '0.5'
     environment:
-      - UID={{ default_puid | default(1000) }}
-      - GID={{ default_pgid | default(1000) }}
-      - TZ={{ timezone | default('Europe/Moscow') }}
+      - UID={{ identity_puid }}
+      - GID={{ identity_pgid }}
+      - TZ={{ identity_timezone }}
       - LLDAP_HTTP_PORT={{ identity_lldap_port_http }}
       - LLDAP_LDAP_PORT={{ identity_lldap_port_ldap }}
       - LLDAP_LDAP_BASE_DN={{ identity_lldap_base_dn }}
@@ -28,10 +28,10 @@ services:
       - ./data/lldap:/data
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:{{ identity_lldap_port_http }}/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+      interval: {{ identity_hc_interval }}
+      timeout: {{ identity_hc_timeout }}
+      retries: {{ identity_hc_retries }}
+      start_period: {{ identity_hc_start_period }}
 
     labels:
       caddy: "{{ identity_lldap_domain }}"
@@ -41,28 +41,29 @@ services:
     networks:
       - {{ docker_network_name }}
 
-  # 2. PocketID (Identity Provider)
+  # [ PocketID ]
   pocketid:
     container_name: pocketid
-    image: {{ identity_pocketid_image }}
-    restart: unless-stopped
+    image: "{{ identity_pocketid_image }}:{{ identity_pocketid_version }}"
+    restart: "{{ identity_restart_policy }}"
     security_opt:
       - no-new-privileges:true
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: {{ identity_pocketid_memory_limit }}
     depends_on:
       lldap:
         condition: service_healthy
     environment:
       APP_URL: "https://{{ identity_pocketid_domain }}"
       TRUST_PROXY: "{{ identity_pocketid_trust_proxy }}"
-      PUID: "{{ identity_pocketid_puid }}"
-      PGID: "{{ identity_pocketid_pgid }}"
+      PUID: "{{ identity_puid }}"
+      PGID: "{{ identity_pgid }}"
       UI_CONFIG_DISABLED: "{{ identity_pocketid_ui_config_disabled }}"
+      TZ: "{{ identity_timezone }}"
 
-      # LDAP Auto Config
+      # LDAP Config
       SESSION_DURATION: "129600"
       ANALYTICS_DISABLED: "true"
       LDAP_SOFT_DELETE_USERS: "false"
@@ -93,10 +94,10 @@ services:
       - ./data/pocketid/data:/app/data
     healthcheck:
       test: ["CMD", "/app/pocket-id", "healthcheck"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+      interval: {{ identity_hc_interval }}
+      timeout: {{ identity_hc_timeout }}
+      retries: {{ identity_hc_retries }}
+      start_period: {{ identity_hc_start_period }}
 
     labels:
       caddy: "{{ identity_pocketid_domain }}"
@@ -106,17 +107,17 @@ services:
     networks:
       - {{ docker_network_name }}
 
-  # 3. TinyAuth (Middleware)
+  # [ TinyAuth ]
   tinyauth:
     container_name: tinyauth
-    image: {{ identity_tinyauth_image }}
-    restart: unless-stopped
+    image: "{{ identity_tinyauth_image }}:{{ identity_tinyauth_version }}"
+    restart: "{{ identity_restart_policy }}"
     security_opt:
       - no-new-privileges:true
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: {{ identity_tinyauth_memory_limit }}
     depends_on:
       pocketid:
         condition: service_healthy
@@ -125,6 +126,7 @@ services:
     environment:
       APP_URL: "https://{{ identity_tinyauth_domain }}"
       TRUST_PROXY: "true"
+      TZ: "{{ identity_timezone }}"
 {% if identity_tinyauth_auto_redirect | default(false) | bool %}
       OAUTH_AUTO_REDIRECT: "pocketid"
 {% endif %}
@@ -141,8 +143,6 @@ services:
       caddy: "{{ identity_tinyauth_domain }}"
       caddy.reverse_proxy: "{{ '{{upstreams %s}}' | format(identity_tinyauth_port) }}"
       caddy.import: "secure-headers"
-      # Мы больше не объявляем здесь "middleware" для других.
-      # Caddy умеет ходить в TinyAuth через forward_auth напрямую, зная адрес контейнера tinyauth:3000
 
     networks:
       - {{ docker_network_name }}
@@ -150,4 +150,3 @@ services:
 networks:
   {{ docker_network_name }}:
     external: true
-

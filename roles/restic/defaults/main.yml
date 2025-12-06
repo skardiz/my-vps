@@ -1,34 +1,46 @@
 ---
+# [ Service Identity ]
 restic_service_name: "restic"
-restic_image: "local/restic-with-rclone:latest"
-restic_compose_dir: "{{ docker_base_dir }}/restic"
+restic_container_name: "{{ restic_service_name }}"
+restic_image: "local/restic-with-rclone"
+restic_base_image: "restic/restic"
+restic_base_version: "{{ docker_image_tag | default('latest') }}"
 
-# --- Расписания ---
-# Бэкап: каждый день в 04:00
+# [ Paths & Directories ]
+restic_compose_dir: "{{ docker_base_dir }}/{{ restic_service_name }}"
+restic_config_dir: "{{ restic_compose_dir }}/config"
+restic_build_dir: "{{ restic_compose_dir }}/build"
+
+# [ Schedule ]
 restic_timer_schedule: "*-*-* 04:00:00"
-# Проверка (Check): каждое воскресенье в 05:00
-restic_check_schedule: "Sun *-*-* 05:00:00"
+restic_check_schedule: "Sun *-*-* 06:00:00"
 
-# --- Настройки проверки ---
-# Сколько данных считывать для проверки целостности (чтобы не качать всё)
+# [ Check Settings ]
 restic_check_subset: "5%"
 
-# --- Секреты (из Vault) ---
+# [ Secrets ]
 restic_password: "{{ vault_backup.restic_password }}"
 restic_rclone_config: "{{ vault_backup.rclone_config }}"
 
-# --- Репозиторий ---
+# [ Repository ]
 restic_repo: "rclone:gdrive:vps_backups"
 restic_healthcheck_url: ""
 
-# --- Политика хранения ---
+# [ Rclone Tuning ]
+restic_rclone_chunk_size: "128M"
+restic_rclone_timeout: "10m"
+
+# [ Retention Policy ]
 restic_keep_daily: 7
 restic_keep_weekly: 4
 
-# --- Сервис для остановки ---
+# [ Service to Stop ]
 restic_stop_service: "tuwunel"
 
-# --- Пути ---
+# [ Resources ]
+restic_memory_limit: "{{ docker_memory_limit | default('512M') }}"
+
+# [ Backup Paths ]
 restic_mounts:
   - src: "{{ docker_base_dir }}"
     dst: "/data"

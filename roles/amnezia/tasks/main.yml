@@ -7,7 +7,7 @@
     utils_docker_service_name: "{{ amnezia_service_name }}"
     utils_docker_service_dir: "{{ amnezia_compose_dir }}"
     utils_docker_service_compose_template: "{{ playbook_dir }}/roles/amnezia/templates/docker-compose.yml.j2"
+
     utils_docker_service_templates:
       - src: nginx_default.conf.j2
         dest: "{{ amnezia_config_dir }}/nginx_default.conf"
-  tags: [amnezia, vpn]

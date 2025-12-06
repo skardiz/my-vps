@@ -1,18 +1,17 @@
 services:
   {{ tuwunel_service_name }}:
-    image: {{ tuwunel_image }}
-    container_name: {{ tuwunel_service_name }}
-    restart: unless-stopped
+    image: "{{ tuwunel_image }}:{{ tuwunel_image_tag }}"
+    container_name: "{{ tuwunel_service_name }}"
+    restart: "{{ tuwunel_restart_policy }}"
 
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: {{ tuwunel_memory_limit }}
 
     volumes:
       - ./config/tuwunel.toml:/etc/tuwunel/tuwunel.toml:ro
       - ./data:/var/lib/tuwunel
-      - /etc/localtime:/etc/localtime:ro
 {% if tuwunel_ldap_enabled %}
       - ./.ldap_bind_password:{{ tuwunel_ldap_bind_password_file }}:ro
 {% endif %}
@@ -24,6 +23,7 @@ services:
     environment:
       - TUWUNEL_CONFIG=/etc/tuwunel/tuwunel.toml
       - TUWUNEL_LOG={{ tuwunel_log_level }}
+      - TZ={{ tuwunel_timezone }}
 
     ulimits:
       nofile:
@@ -32,42 +32,42 @@ services:
 
     healthcheck:
       test: ["CMD", "tuwunel", "--version"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      interval: {{ tuwunel_hc_interval }}
+      timeout: {{ tuwunel_hc_timeout }}
+      retries: {{ tuwunel_hc_retries }}
       start_period: 40s
 
     labels:
       # === SITE 1: Matrix (matrix.ziix.ru) ===
       caddy: "{{ tuwunel_domain }}"
       caddy.import: "secure-headers"
-      
-      # Контейнер для упорядоченных правил
+
+      # Routes
       caddy.route: ""
 
-      # 1. Well-known Client (отдаем JSON настроек)
+      # 1. Well-known Client
       caddy.route.0_handle_path: "/.well-known/matrix/client"
       caddy.route.0_handle_path.header_0: "Access-Control-Allow-Origin *"
       caddy.route.0_handle_path.header_1: "+Content-Type application/json"
       caddy.route.0_handle_path.respond: '`{ "m.homeserver":{"base_url":"https://{{ tuwunel_domain }}"}, "org.matrix.msc4143.rtc_foci":[{"type":"livekit","livekit_service_url":"https://{{ tuwunel_livekit_domain }}","jwt_service_url":"https://{{ tuwunel_livekit_domain }}/sfu/get"}] }`'
 
-      # 2. Well-known Server (отдаем JSON делегации)
+      # 2. Well-known Server
       caddy.route.1_handle_path: "/.well-known/matrix/server"
       caddy.route.1_handle_path.header_0: "Access-Control-Allow-Origin *"
       caddy.route.1_handle_path.header_1: "+Content-Type application/json"
       caddy.route.1_handle_path.respond: '`{"m.server":"{{ tuwunel_domain }}:443"}`'
 
-      # 3. Proxy to Matrix (все остальные запросы)
+      # 3. Proxy to Matrix
       caddy.route.2_reverse_proxy: "{{ tuwunel_service_name }}:{{ tuwunel_port }}"
 
 
       # === SITE 2: Root Domain (ziix.ru) ===
       caddy_1: "{{ tuwunel_server_name }}"
       caddy_1.import: "secure-headers"
-      
+
       caddy_1.route: ""
 
-      # 1. Well-known Client (такой же JSON, перенаправляет на matrix.ziix.ru)
+      # 1. Well-known Client
       caddy_1.route.0_handle_path: "/.well-known/matrix/client"
       caddy_1.route.0_handle_path.header_0: "Access-Control-Allow-Origin *"
       caddy_1.route.0_handle_path.header_1: "+Content-Type application/json"
@@ -81,16 +81,19 @@ services:
 
 
   {{ tuwunel_livekit_service_name }}:
-    image: {{ tuwunel_livekit_image }}
-    container_name: {{ tuwunel_livekit_service_name }}
-    restart: unless-stopped
+    image: "{{ tuwunel_livekit_image }}:{{ tuwunel_livekit_tag }}"
+    container_name: "{{ tuwunel_livekit_service_name }}"
+    restart: "{{ tuwunel_restart_policy }}"
 
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: {{ tuwunel_livekit_memory_limit }}
 
     command: --config /etc/livekit.yaml
+
+    environment:
+      - TZ={{ tuwunel_timezone }}
 
     networks:
       - {{ tuwunel_docker_network }}
@@ -103,39 +106,36 @@ services:
 
     volumes:
       - ./config/livekit.yaml:/etc/livekit.yaml:ro
-      - /etc/localtime:/etc/localtime:ro
 
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:{{ tuwunel_livekit_http_port }}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: {{ tuwunel_hc_interval }}
+      timeout: {{ tuwunel_hc_timeout }}
+      retries: {{ tuwunel_hc_retries }}
       start_period: 20s
 
     labels:
       caddy: "{{ tuwunel_livekit_domain }}"
       caddy.import: "secure-headers"
-      
+
       caddy.route: ""
-      
+
       # 1. JWT Service
-      # ВАЖНО: handle НЕ обрезает путь (в отличие от handle_path). 
-      # Сервис получит запрос "/sfu/get...", как и ожидает.
       caddy.route.0_handle: "/sfu/get*"
       caddy.route.0_handle.reverse_proxy: "{{ tuwunel_jwt_service_name }}:8081"
-      
-      # 2. LiveKit (все остальные запросы летят в сам LiveKit)
+
+      # 2. LiveKit
       caddy.route.1_reverse_proxy: "{{ tuwunel_livekit_service_name }}:{{ tuwunel_livekit_http_port }}"
 
   {{ tuwunel_jwt_service_name }}:
-    image: {{ tuwunel_jwt_image }}
-    container_name: {{ tuwunel_jwt_service_name }}
-    restart: unless-stopped
+    image: "{{ tuwunel_jwt_image }}:{{ tuwunel_jwt_tag }}"
+    container_name: "{{ tuwunel_jwt_service_name }}"
+    restart: "{{ tuwunel_restart_policy }}"
 
     deploy:
       resources:
         limits:
-          memory: 64M
+          memory: {{ tuwunel_jwt_memory_limit }}
 
     environment:
       - LIVEKIT_JWT_BIND=:{{ tuwunel_jwt_port }}
@@ -144,13 +144,11 @@ services:
       - LIVEKIT_SECRET={{ tuwunel_livekit_secret }}
       - LIVEKIT_FULL_ACCESS_HOMESERVERS={{ tuwunel_server_name }}
       - LIVEKIT_LOG_LEVEL={{ tuwunel_jwt_log_level }}
+      - TZ={{ tuwunel_timezone }}
 
     networks:
       - {{ tuwunel_docker_network }}
       - livekit_internal
-
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
 
 networks:
   {{ tuwunel_docker_network }}:

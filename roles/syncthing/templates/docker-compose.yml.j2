@@ -1,22 +1,25 @@
 services:
   {{ syncthing_service_name }}:
-    container_name: {{ syncthing_service_name }}
-    image: {{ syncthing_image }}
-    restart: unless-stopped
+    image: "{{ syncthing_image }}:{{ syncthing_image_tag }}"
+    container_name: "{{ syncthing_container_name }}"
+    restart: "{{ syncthing_restart_policy }}"
+
+    # DISABLE DOCKER INIT (Conflict with s6-overlay)
+    init: false
 
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: {{ syncthing_memory_limit }}
 
     environment:
       PUID: "{{ syncthing_puid }}"
       PGID: "{{ syncthing_pgid }}"
-      TZ: "{{ syncthing_tz }}"
+      TZ: "{{ syncthing_timezone }}"
 
     volumes:
       - "./config:/config"
-      - "./data:/data"
+      - "{{ syncthing_data_dir }}:/data"
 
     ports:
       - "{{ syncthing_tcp_port }}:{{ syncthing_tcp_port }}/tcp"
@@ -25,22 +28,27 @@ services:
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8384/rest/noauth/health"]
-      interval: 1m
-      timeout: 10s
-      retries: 3
-      start_period: 1m
+      interval: {{ syncthing_hc_interval }}
+      timeout: {{ syncthing_hc_timeout }}
+      retries: {{ syncthing_hc_retries }}
+      start_period: {{ syncthing_hc_start_period }}
 
     labels:
       caddy: "{{ syncthing_domain }}"
       caddy.import: "secure-headers"
-      caddy.forward_auth: "tinyauth:3000"
-      caddy.forward_auth.uri: "/api/auth/caddy"
-      caddy.forward_auth.copy_headers: "X-User X-Email X-Groups Remote-User Remote-Email"
-      caddy.reverse_proxy: "{{ syncthing_service_name }}:{{ syncthing_web_port }}"
+      
+      # Auth via TinyAuth (Forward Auth)
+      # Using 'route' to ensure auth happens before proxy
+      caddy.route: ""
+      caddy.route.0_forward_auth: "tinyauth:3000"
+      caddy.route.0_forward_auth.uri: "/api/auth/caddy"
+      caddy.route.0_forward_auth.copy_headers: "X-User X-Email X-Groups Remote-User Remote-Email"
+      
+      caddy.route.1_reverse_proxy: "{{ syncthing_service_name }}:{{ syncthing_web_port }}"
 
     networks:
-      - {{ docker_network_name }}
+      - {{ syncthing_docker_network }}
 
 networks:
-  {{ docker_network_name }}:
+  {{ syncthing_docker_network }}:
     external: true

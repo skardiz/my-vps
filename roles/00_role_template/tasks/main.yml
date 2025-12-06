@@ -1,0 +1,27 @@
+---
+- name: Deploy Template Service
+  ansible.builtin.include_role:
+    name: utils
+    tasks_from: docker_service
+  vars:
+    utils_docker_service_name: "{{ template_service_name }}"
+    utils_docker_service_dir: "{{ template_compose_dir }}"
+
+    # [ TEMPLATE: IMAGE ONLY ]
+    utils_docker_service_compose_template: "{{ playbook_dir }}/roles/{{ template_service_name }}/templates/docker-compose.yml.j2"
+
+    # [ Config & Build Files ]
+    utils_docker_service_templates:
+      - src: Dockerfile.j2
+        dest: "{{ template_compose_dir }}/Dockerfile"
+      # Example config (uncomment if needed)
+      # - src: Config.j2
+      #   dest: "{{ template_config_dir }}/config.yml"
+
+    # [ Build Strategy ]
+    # Only needed for 'docker-compose-build.yml.j2'. Remove if using image only.
+    utils_docker_service_build:
+      name: "{{ template_service_name }}:local"
+      path: "{{ template_compose_dir }}"
+      pull: true
+      force: false

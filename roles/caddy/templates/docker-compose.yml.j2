@@ -1,31 +1,53 @@
 services:
-  caddy:
+  {{ caddy_service_name }}:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: {{ caddy_service_name }}
-    restart: unless-stopped
+
+    container_name: "{{ caddy_container_name }}"
+    restart: "{{ caddy_restart_policy }}"
+
+    deploy:
+      resources:
+        limits:
+          memory: {{ caddy_memory_limit }}
+
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "{{ caddy_port_http }}:80"
+      - "{{ caddy_port_https }}:443"
+      - "{{ caddy_port_https }}:443/udp"
+
     environment:
-      - CADDY_INGRESS_NETWORKS={{ docker_network_name }}
-      - CADDY_DOCKER_CADDYFILE_PATH=/config/Caddyfile
+      CADDY_INGRESS_NETWORKS: "{{ caddy_docker_network }}"
+      CADDY_DOCKER_CADDYFILE_PATH: "/config/Caddyfile"
+      ACME_EMAIL: "{{ caddy_acme_email }}"
+      TZ: "{{ caddy_timezone }}"
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./data:/data
-      - ./config:/config
+      - "{{ caddy_data_dir }}:/data"
+      - "{{ caddy_config_dir }}:/config"
+
     networks:
-      - {{ docker_network_name }}
-    
+      - {{ caddy_docker_network }}
+
+    # [ GLOBAL SNIPPETS DEFINITION ]
+    labels:
+      caddy_0: "(secure-headers)"
+      caddy_0.header.Strict-Transport-Security: "\"max-age=31536000; includeSubDomains\""
+      caddy_0.header.X-Content-Type-Options: "nosniff"
+      caddy_0.header.X-Frame-Options: "DENY"
+      caddy_0.header.Referrer-Policy: "strict-origin-when-cross-origin"
+
+{% if caddy_hc_enabled %}
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/metrics"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:{{ caddy_port_admin }}/metrics"]
       interval: {{ caddy_hc_interval }}
       timeout: {{ caddy_hc_timeout }}
       retries: {{ caddy_hc_retries }}
       start_period: {{ caddy_hc_start_period }}
+{% endif %}
 
 networks:
-  {{ docker_network_name }}:
+  {{ caddy_docker_network }}:
     external: true

@@ -1,33 +1,39 @@
 ---
-# Service names
+# [ Service Identity ]
 vaultwarden_service_name: "vaultwarden"
+vaultwarden_container_name: "{{ vaultwarden_service_name }}"
+vaultwarden_image: "vaultwarden/server"
+vaultwarden_image_tag: "{{ docker_image_tag | default('latest') }}"
 
-# Directories
-# Исправили имя переменной с _base_dir на _compose_dir, чтобы совпадало с tasks
+# [ Paths & Directories ]
 vaultwarden_compose_dir: "{{ docker_base_dir }}/{{ vaultwarden_service_name }}"
 vaultwarden_data_dir: "{{ vaultwarden_compose_dir }}/data"
 
-# Docker images
-vaultwarden_image: "vaultwarden/server:latest"
-
-# Domains
+# [ Network & Ports ]
+vaultwarden_docker_network: "{{ docker_network_name }}"
 vaultwarden_domain: "vault.{{ base_domain }}"
-
-# Ports
 vaultwarden_port_http: 80
 vaultwarden_port_ws: 3012
 
-# Config
+# [ Configuration ]
+vaultwarden_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
+vaultwarden_timezone: "{{ docker_timezone | default('Europe/Moscow') }}"
 vaultwarden_signups_allowed: true
 vaultwarden_invitations_allowed: true
 vaultwarden_show_password_hint: false
 vaultwarden_websocket_enabled: true
 
-# Secrets
+# [ Secrets ]
 vaultwarden_admin_token: "{{ vault_vaultwarden.admin_token | default('') }}"
 
-# Performance
-vaultwarden_memory_limit: "256M"
+# [ Resources ]
+vaultwarden_memory_limit: "{{ docker_memory_limit | default('256M') }}"
 
-# Logging
+# [ Logging ]
 vaultwarden_log_level: "info"
+
+# [ Healthcheck Strategy ]
+vaultwarden_hc_interval: "{{ docker_hc_interval | default('30s') }}"
+vaultwarden_hc_timeout: "{{ docker_hc_timeout | default('10s') }}"
+vaultwarden_hc_retries: "{{ docker_hc_retries | default(3) }}"
+vaultwarden_hc_start_period: "20s"

@@ -1,43 +1,47 @@
 ---
+# [ Service Identity ]
 identity_service_name: "identity"
 identity_compose_dir: "{{ docker_base_dir }}/{{ identity_service_name }}"
 identity_data_dir: "{{ identity_compose_dir }}/data"
+identity_config_dir: "{{ identity_compose_dir }}/config"
 
-# ==========================================
-# LLDAP Configuration
-# ==========================================
-identity_lldap_image: "lldap/lldap:latest"
+# [ Global Config ]
+identity_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
+identity_timezone: "{{ docker_timezone | default('Europe/Moscow') }}"
+identity_puid: "{{ docker_puid | default('1000') }}"
+identity_pgid: "{{ docker_pgid | default('1000') }}"
+
+# [ LLDAP Configuration ]
+identity_lldap_image: "lldap/lldap"
+identity_lldap_version: "{{ docker_image_tag | default('latest') }}"
 identity_lldap_domain: "ldap.{{ base_domain }}"
 identity_lldap_port_http: 17170
 identity_lldap_port_ldap: 3890
 identity_lldap_base_dn: "dc=ziix,dc=ru"
+identity_lldap_memory_limit: "{{ docker_memory_limit | default('128M') }}"
 
-# Admin & Secrets (from Vault)
+# [ Admin & Secrets ]
 identity_lldap_admin_dn: "{{ vault_identity.lldap.admin_login }}"
 identity_lldap_admin_pass: "{{ vault_identity.lldap.admin_password }}"
 identity_lldap_admin_email: "{{ vault_identity.lldap.admin_email }}"
 identity_lldap_key_seed: "{{ vault_identity.lldap.key_seed }}"
 identity_lldap_jwt_secret: "{{ vault_identity.lldap.jwt_secret }}"
 
-# ==========================================
-# PocketID Configuration
-# ==========================================
-identity_pocketid_image: "ghcr.io/pocket-id/pocket-id:latest"
+# [ PocketID Configuration ]
+identity_pocketid_image: "ghcr.io/pocket-id/pocket-id"
+identity_pocketid_version: "{{ docker_image_tag | default('latest') }}"
 identity_pocketid_domain: "auth.{{ base_domain }}"
 identity_pocketid_port: "1411"
-identity_pocketid_puid: "{{ default_puid }}"
-identity_pocketid_pgid: "{{ default_pgid }}"
 identity_pocketid_trust_proxy: "true"
 identity_pocketid_maxmind_license_key: ""
-
-# 🔥 ВАЖНО: Отключаем редактирование в UI, чтобы работали переменные ENV
 identity_pocketid_ui_config_disabled: "true"
+identity_pocketid_memory_limit: "{{ docker_memory_limit | default('256M') }}"
 
-# LDAP Integration Settings
+# [ LDAP Integration ]
 identity_pocketid_ldap_base: "ou=people,{{ identity_lldap_base_dn }}"
 identity_pocketid_ldap_admin_group: "lldap_admin"
 
-# Mappings
+# [ Mappings ]
 identity_pocketid_ldap_attr_user_uid: "uid"
 identity_pocketid_ldap_attr_user_username: "uid"
 identity_pocketid_ldap_attr_user_email: "mail"
@@ -48,19 +52,24 @@ identity_pocketid_ldap_attr_group_member: "member"
 identity_pocketid_ldap_attr_group_uid: "cn"
 identity_pocketid_ldap_attr_group_name: "cn"
 
-# ==========================================
-# TinyAuth Configuration
-# ==========================================
-identity_tinyauth_image: "ghcr.io/steveiliop56/tinyauth:latest"
+# [ TinyAuth Configuration ]
+identity_tinyauth_image: "ghcr.io/steveiliop56/tinyauth"
+identity_tinyauth_version: "{{ docker_image_tag | default('latest') }}"
 identity_tinyauth_domain: "tinyauth.{{ base_domain }}"
 identity_tinyauth_port: "3000"
 identity_tinyauth_auto_redirect: true
+identity_tinyauth_memory_limit: "{{ docker_memory_limit | default('128M') }}"
 
-# Secrets (from Vault) - Могут быть пустыми при первом запуске
+# [ Secrets ]
 identity_tinyauth_client_id: "{{ vault_identity.tinyauth.pocketid_client_id | default('') }}"
 identity_tinyauth_client_secret: "{{ vault_identity.tinyauth.pocketid_client_secret | default('') }}"
 
-# OAuth URLs
+# [ OAuth URLs ]
 identity_tinyauth_pocketid_public_url: "https://{{ identity_pocketid_domain }}"
 identity_tinyauth_pocketid_internal_url: "http://pocketid:1411"
-identity_config_dir: "{{ identity_compose_dir }}/config"
+
+# [ Healthcheck ]
+identity_hc_interval: "{{ docker_hc_interval | default('30s') }}"
+identity_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
+identity_hc_retries: "{{ docker_hc_retries | default(3) }}"
+identity_hc_start_period: "60s" # LLDAP requires slow start

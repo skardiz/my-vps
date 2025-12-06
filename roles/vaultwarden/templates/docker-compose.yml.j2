@@ -1,8 +1,8 @@
 services:
   {{ vaultwarden_service_name }}:
-    image: {{ vaultwarden_image }}
-    container_name: {{ vaultwarden_service_name }}
-    restart: unless-stopped
+    image: "{{ vaultwarden_image }}:{{ vaultwarden_image_tag }}"
+    container_name: "{{ vaultwarden_container_name }}"
+    restart: "{{ vaultwarden_restart_policy }}"
 
     deploy:
       resources:
@@ -23,13 +23,14 @@ services:
       - WEBSOCKET_ENABLED={{ vaultwarden_websocket_enabled | lower }}
       - LOG_LEVEL={{ vaultwarden_log_level }}
       - ADMIN_TOKEN={{ vaultwarden_admin_token }}
+      - TZ={{ vaultwarden_timezone }}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/alive"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      interval: {{ vaultwarden_hc_interval }}
+      timeout: {{ vaultwarden_hc_timeout }}
+      retries: {{ vaultwarden_hc_retries }}
+      start_period: {{ vaultwarden_hc_start_period }}
 
     labels:
       caddy: "{{ vaultwarden_domain }}"

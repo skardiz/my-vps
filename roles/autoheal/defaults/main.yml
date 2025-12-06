@@ -1,9 +1,25 @@
----
+# [ Service Identity ]
 autoheal_service_name: "autoheal"
-autoheal_image: "willfarrell/autoheal:latest"
-autoheal_compose_dir: "{{ docker_base_dir }}/autoheal"
+autoheal_container_name: "{{ autoheal_service_name }}"
+autoheal_image: "willfarrell/autoheal"
+autoheal_image_tag: "{{ docker_image_tag | default('latest') }}"
 
+# [ Paths & Directories ]
+autoheal_compose_dir: "{{ docker_base_dir }}/{{ autoheal_service_name }}"
+
+# [ Configuration ]
+autoheal_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
+autoheal_timezone: "{{ docker_timezone | default('UTC') }}"
 autoheal_interval: 60
 autoheal_start_period: 60
 autoheal_stop_timeout: 10
 autoheal_container_label: "all"
+
+# [ Resources ]
+autoheal_memory_limit: "{{ docker_memory_limit | default('64M') }}"
+
+# [ Healthcheck Strategy ]
+autoheal_hc_interval: "{{ docker_hc_interval | default('30s') }}"
+autoheal_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
+autoheal_hc_retries: "{{ docker_hc_retries | default(3) }}"
+autoheal_hc_start_period: "{{ docker_hc_start_period | default('10s') }}"
