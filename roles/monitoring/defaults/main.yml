@@ -1,0 +1,49 @@
+---
+# [ Service Identity ]
+monitoring_service_name: "monitoring"
+monitoring_hub_container: "beszel-hub"
+monitoring_agent_container: "beszel-agent"
+
+# [ Images ]
+monitoring_hub_image: "henrygd/beszel"
+monitoring_hub_tag: "{{ docker_image_tag | default('latest') }}"
+monitoring_agent_image: "henrygd/beszel-agent"
+monitoring_agent_tag: "{{ docker_image_tag | default('latest') }}"
+
+# [ Paths ]
+monitoring_root: "{{ docker_base_dir }}/{{ monitoring_service_name }}"
+monitoring_hub_data: "{{ monitoring_root }}/hub_data"
+monitoring_agent_data: "{{ monitoring_root }}/agent_data"
+
+# [ Network ]
+monitoring_domain: "mon.{{ base_domain }}"
+monitoring_port: 8090
+monitoring_network: "{{ docker_network_name }}"
+monitoring_agent_port: 45876
+
+# [ External Dependencies ]
+monitoring_identity_domain: "auth.{{ base_domain }}"
+monitoring_lldap_admin_dn: "admin"
+
+# [ Configuration ]
+monitoring_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
+monitoring_timezone: "{{ docker_timezone | default('Europe/Moscow') }}"
+
+# [ Secrets from Vault ]
+monitoring_agent_key: "{{ vault_monitoring.agent_key | default('') }}"
+monitoring_agent_token: "{{ vault_monitoring.agent_token | default('') }}"
+
+monitoring_admin_email: "{{ vault_monitoring.admin_email | default('') }}"
+monitoring_admin_password: "{{ vault_monitoring.admin_password | default('') }}"
+
+monitoring_beszel_client_id: "{{ vault_monitoring.beszel_client_id | default('') }}"
+monitoring_beszel_client_secret: "{{ vault_monitoring.beszel_client_secret | default('') }}"
+
+# [ Resources ]
+monitoring_hub_memory: "{{ docker_memory_limit | default('128M') }}"
+monitoring_agent_memory: "64M"
+
+# [ Healthcheck Strategy ]
+monitoring_hc_interval: "{{ docker_hc_interval | default('30s') }}"
+monitoring_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
+monitoring_hc_retries: "{{ docker_hc_retries | default(3) }}"

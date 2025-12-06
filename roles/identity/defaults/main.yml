@@ -35,6 +35,7 @@ identity_pocketid_port: "1411"
 identity_pocketid_trust_proxy: "true"
 identity_pocketid_maxmind_license_key: ""
 identity_pocketid_ui_config_disabled: "true"
+identity_pocketid_emails_verified: "true"
 identity_pocketid_memory_limit: "{{ docker_memory_limit | default('256M') }}"
 
 # [ LDAP Integration ]

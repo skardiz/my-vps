@@ -1,0 +1,210 @@
+---
+- name: Deploy Beszel Hub
+  ansible.builtin.include_role:
+    name: utils
+    tasks_from: docker_service
+  vars:
+    utils_docker_service_name: "{{ monitoring_service_name }}"
+    utils_docker_service_dir: "{{ monitoring_root }}"
+    utils_docker_service_data_dirs:
+      - "{{ monitoring_hub_data }}"
+    utils_docker_service_compose_template: "{{ playbook_dir }}/roles/monitoring/templates/docker-compose.yml.j2"
+
+- name: Wait for Beszel Hub to start
+  ansible.builtin.uri:
+    url: "https://{{ monitoring_domain }}/api/health"
+    status_code: 200
+    validate_certs: false
+  register: monitoring_beszel_health
+  until: monitoring_beszel_health.status == 200
+  retries: 30
+  delay: 5
+  tags: [monitoring, deploy]
+
+# ==============================================================================
+# 🤖 SELF-CONTAINED OIDC SETUP FOR BESZEL
+# ==============================================================================
+
+- name: "⚡ AUTO-CONFIG: Generate PocketID Token"
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      if docker ps | grep -q pocketid; then
+        LINK_OUTPUT=$(docker exec pocketid /app/pocket-id one-time-access-token {{ monitoring_lldap_admin_dn }})
+        echo "$LINK_OUTPUT" | grep -o 'https://[^ ]*' | awk -F/ '{print $NF}'
+      else
+        echo ""
+      fi
+    executable: /bin/bash
+  register: monitoring_pocketid_token_gen
+  when: monitoring_beszel_client_id | length == 0
+  failed_when: false
+  changed_when: false
+  tags: [monitoring, config, oidc]
+
+- name: "⚡ AUTO-CONFIG: Create Beszel Client in PocketID"
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      TOKEN="{{ monitoring_pocketid_token_gen.stdout }}"
+      if [ -z "$TOKEN" ]; then echo "SKIP: No Token"; exit 0; fi
+      rm -f /tmp/beszel_pocket_cookie.txt
+      curl -s -k -c /tmp/beszel_pocket_cookie.txt -X POST "https://{{ monitoring_identity_domain }}/api/one-time-access-token/$TOKEN" > /dev/null
+      RESP=$(curl -s -k -b /tmp/beszel_pocket_cookie.txt \
+        -X POST "https://{{ monitoring_identity_domain }}/api/oidc/clients" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "Beszel Monitor",
+          "launchUrl": "https://{{ monitoring_domain }}",
+          "callbackUrls": ["https://{{ monitoring_domain }}/api/oauth2-redirect"],
+          "pkceEnabled": true,
+          "isPublic": false
+        }')
+      ID=$(echo "$RESP" | jq -r '.id // empty')
+      SECRET=$(echo "$RESP" | jq -r '.credentials.secret // .clientSecret // empty')
+      if [ -n "$ID" ] && [ -z "$SECRET" ]; then
+          S_RESP=$(curl -s -k -b /tmp/beszel_pocket_cookie.txt \
+            -X POST "https://{{ monitoring_identity_domain }}/api/oidc/clients/$ID/secret" \
+            -H "Content-Type: application/json")
+          SECRET=$(echo "$S_RESP" | jq -r '.secret // empty')
+      fi
+      if [ -n "$ID" ] && [ -n "$SECRET" ]; then
+         echo "BZ_ID:$ID"
+         echo "BZ_SECRET:$SECRET"
+      fi
+      rm -f /tmp/beszel_pocket_cookie.txt
+    executable: /bin/bash
+  when: monitoring_beszel_client_id | length == 0
+  register: monitoring_beszel_oidc_client
+  changed_when: "'BZ_ID:' in monitoring_beszel_oidc_client.stdout"
+  tags: [monitoring, config, oidc]
+
+- name: Set Beszel OIDC Facts
+  ansible.builtin.set_fact:
+    monitoring_final_client_id: >-
+      {{ (monitoring_beszel_oidc_client.stdout | default('') | regex_search('BZ_ID:([a-zA-Z0-9-]+)', '\1') | first)
+      if (monitoring_beszel_oidc_client.changed and 'BZ_ID:' in monitoring_beszel_oidc_client.stdout)
+      else monitoring_beszel_client_id }}
+    monitoring_final_client_secret: >-
+      {{ (monitoring_beszel_oidc_client.stdout | default('') | regex_search('BZ_SECRET:([a-zA-Z0-9-]+)', '\1') | first)
+      if (monitoring_beszel_oidc_client.changed and 'BZ_SECRET:' in monitoring_beszel_oidc_client.stdout)
+      else monitoring_beszel_client_secret }}
+  tags: [monitoring, config, oidc]
+
+- name: "⚡ AUTO-CONFIG: Patch Beszel OIDC Settings"
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      TOKEN=$(curl -s -X POST "https://{{ monitoring_domain }}/api/collections/_superusers/auth-with-password" \
+        -H "Content-Type: application/json" \
+        -d '{"identity":"{{ monitoring_admin_email }}","password":"{{ monitoring_admin_password }}"}' | jq -r '.token')
+      if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then echo "FAIL: Login"; exit 1; fi
+      curl -X PATCH "https://{{ monitoring_domain }}/api/collections/users" \
+        -H "Authorization: $TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"oauth2\": {
+            \"enabled\": true,
+            \"providers\": [
+              {
+                \"name\": \"oidc\",
+                \"title\": \"PocketID\",
+                \"clientId\": \"{{ monitoring_final_client_id }}\",
+                \"clientSecret\": \"{{ monitoring_final_client_secret }}\",
+                \"authUrl\": \"https://{{ monitoring_identity_domain }}/authorize\",
+                \"tokenUrl\": \"https://{{ monitoring_identity_domain }}/api/oidc/token\",
+                \"userInfoUrl\": \"https://{{ monitoring_identity_domain }}/api/oidc/userinfo\",
+                \"displayName\": \"PocketID\",
+                \"pkce\": true
+              }
+            ]
+          }
+        }"
+    executable: /bin/bash
+  when:
+    - monitoring_admin_email | length > 0
+    - monitoring_final_client_id | length > 0
+    - monitoring_final_client_secret | length > 0
+  register: monitoring_beszel_patch_result
+  changed_when: monitoring_beszel_patch_result.rc == 0
+  tags: [monitoring, config, oidc]
+
+# ==============================================================================
+# 🤖 AUTO-CONFIG: FETCH SECRETS (USER CONTEXT FOR ACTIVE AGENT)
+# ==============================================================================
+
+- name: "⚡ AUTO-CONFIG: Fetch Beszel Secrets (User Context)"
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      
+      # 1. Admin Token (only for Public Key)
+      ADM_TOK=$(curl -s -X POST "https://{{ monitoring_domain }}/api/collections/_superusers/auth-with-password" \
+        -H "Content-Type: application/json" \
+        -d '{"identity":"{{ monitoring_admin_email }}","password":"{{ monitoring_admin_password }}"}' | jq -r '.token')
+        
+      # 2. Get Public Key
+      KEY_RESP=$(curl -s "https://{{ monitoring_domain }}/api/beszel/getkey" -H "Authorization: $ADM_TOK")
+      PUB_KEY=$(echo "$KEY_RESP" | jq -r '.key // empty')
+
+      # 3. User Token (for Universal Token binding)
+      # Assumes user has same password as admin (which you set)
+      USER_TOK=$(curl -s -X POST "https://{{ monitoring_domain }}/api/collections/users/auth-with-password" \
+        -H "Content-Type: application/json" \
+        -d '{"identity":"{{ monitoring_admin_email }}","password":"{{ monitoring_admin_password }}"}' | jq -r '.token')
+
+      if [ -z "$USER_TOK" ] || [ "$USER_TOK" == "null" ]; then
+          echo "FAIL: User login failed. Ensure user '{{ monitoring_admin_email }}' exists and password matches."
+          # Fallback to Admin Token (might cause relations error, but better than crash)
+          USER_TOK=$ADM_TOK
+      fi
+
+      # 4. Get Universal Token (User Context)
+      TOK_RESP=$(curl -s "https://{{ monitoring_domain }}/api/beszel/universal-token?enable=1" -H "Authorization: $USER_TOK")
+      UNIV_TOKEN=$(echo "$TOK_RESP" | jq -r '.token // empty')
+
+      echo "KEY:$PUB_KEY"
+      echo "TOKEN:$UNIV_TOKEN"
+    executable: /bin/bash
+  register: monitoring_beszel_secrets
+  changed_when: false
+  tags: [monitoring, config, agent]
+
+- name: Set Beszel Agent Facts
+  ansible.builtin.set_fact:
+    monitoring_dynamic_key: >-
+      {{ monitoring_beszel_secrets.stdout | regex_search('KEY:(ssh-ed25519 [^\s]+)', '\1') | first | default(monitoring_agent_key) }}
+    monitoring_dynamic_token: >-
+      {{ monitoring_beszel_secrets.stdout | regex_search('TOKEN:([a-f0-9-]+)', '\1') | first }}
+  tags: [monitoring, config]
+
+# ==============================================================================
+# 🐳 UPDATE AGENT CONFIG & RESTART
+# ==============================================================================
+
+- name: Update Docker Compose with Dynamic Secrets
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/roles/monitoring/templates/docker-compose.yml.j2"
+    dest: "{{ monitoring_root }}/docker-compose.yml"
+    mode: '0644'
+  register: monitoring_compose_update
+  tags: [monitoring, config]
+
+- name: Restart Beszel to apply Secrets
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_root }}"
+    state: present
+    pull: never
+  when: monitoring_compose_update.changed or monitoring_beszel_secrets.stdout | length > 0
+  tags: [monitoring, config]
+
+- name: Show Post-Install Instructions & Secrets
+  ansible.builtin.debug:
+    msg:
+      - "🚀 Beszel Hub deployed at https://{{ monitoring_domain }}"
+      - "✅ Active Agent Configured & Registered (User Context)"
+      - "---------------------------------------------------"
+      - "Dynamic Key:   {{ monitoring_dynamic_key }}"
+      - "Dynamic Token: {{ monitoring_dynamic_token }}"
+      - "---------------------------------------------------"
+  tags: [monitoring, info]

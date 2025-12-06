@@ -1,0 +1,76 @@
+services:
+  # 1. Beszel Hub
+  hub:
+    image: "{{ monitoring_hub_image }}:{{ monitoring_hub_tag }}"
+    container_name: "{{ monitoring_hub_container }}"
+    restart: "{{ monitoring_restart_policy }}"
+
+    deploy:
+      resources:
+        limits:
+          memory: {{ monitoring_hub_memory }}
+
+    environment:
+      TZ: "{{ monitoring_timezone }}"
+      APP_URL: "https://{{ monitoring_domain }}"
+
+      # --- [ Auto-Setup Admin ] ---
+      USER_EMAIL: "{{ monitoring_admin_email }}"
+      USER_PASSWORD: "{{ monitoring_admin_password }}"
+      USER_CREATION: "true"
+
+    volumes:
+      - "{{ monitoring_hub_data }}:/beszel_data"
+
+    networks:
+      - {{ monitoring_network }}
+    
+    # Полезно для отладки или если используешь http://host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    healthcheck:
+      test: ["CMD", "/beszel", "health"]
+      interval: {{ monitoring_hc_interval }}
+      timeout: {{ monitoring_hc_timeout }}
+      retries: {{ monitoring_hc_retries }}
+
+    labels:
+      caddy: "{{ monitoring_domain }}"
+      caddy.import: "secure-headers"
+      caddy.reverse_proxy: "{{ monitoring_hub_container }}:8090"
+
+
+  # 2. Beszel Agent (Active Mode)
+  agent:
+    image: "{{ monitoring_agent_image }}:{{ monitoring_agent_tag }}"
+    container_name: "{{ monitoring_agent_container }}"
+    restart: "{{ monitoring_restart_policy }}"
+    # Active Mode + Host Network = Best Monitoring
+    network_mode: host
+
+    deploy:
+      resources:
+        limits:
+          memory: {{ monitoring_agent_memory }}
+
+    environment:
+      # Ключ (динамический или из Vault)
+      KEY: "{{ monitoring_dynamic_key | default(monitoring_agent_key) }}"
+      
+      # Active Mode: URL Хаба + Токен
+      # Используем внешний домен (требует NAT Loopback/Hairpinning или открытого фаервола)
+      HUB_URL: "https://{{ monitoring_domain }}"
+      
+      # Токен (User-Scoped, полученный через API)
+      TOKEN: "{{ monitoring_dynamic_token | default('') }}"
+      
+      FILESYSTEM: "/extra-filesystems/root"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/extra-filesystems/root:ro
+
+networks:
+  {{ monitoring_network }}:
+    external: true
