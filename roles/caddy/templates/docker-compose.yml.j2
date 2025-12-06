@@ -1,0 +1,31 @@
+services:
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: {{ caddy_service_name }}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - CADDY_INGRESS_NETWORKS={{ docker_network_name }}
+      - CADDY_DOCKER_CADDYFILE_PATH=/config/Caddyfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data:/data
+      - ./config:/config
+    networks:
+      - {{ docker_network_name }}
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/metrics"]
+      interval: {{ caddy_hc_interval }}
+      timeout: {{ caddy_hc_timeout }}
+      retries: {{ caddy_hc_retries }}
+      start_period: {{ caddy_hc_start_period }}
+
+networks:
+  {{ docker_network_name }}:
+    external: true

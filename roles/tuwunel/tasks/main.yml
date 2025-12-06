@@ -1,4 +1,3 @@
-# roles/tuwunel/tasks/main.yml
 ---
 - name: Prepare LDAP files list
   ansible.builtin.set_fact:
@@ -14,7 +13,6 @@
       - { port: "8448", proto: "tcp", comment: "Matrix Federation" }
       - { port: "{{ tuwunel_livekit_tcp_port }}", proto: "tcp", comment: "LiveKit TCP" }
       - { port: "{{ tuwunel_livekit_udp_start }}:{{ tuwunel_livekit_udp_end }}", proto: "udp", comment: "LiveKit WebRTC" }
-  when: tuwunel_livekit_enabled | default(false)
 
 - name: Deploy Tuwunel
   ansible.builtin.include_role:
@@ -23,18 +21,15 @@
   vars:
     utils_docker_service_name: "{{ tuwunel_service_name }}"
     utils_docker_service_dir: "{{ tuwunel_compose_dir }}"
-    utils_docker_service_data_dirs:
-      - "{{ tuwunel_config_dir }}/well-known"
-    # Передаем подготовленные списки (или пустые, если условие не сработало)
+    utils_docker_service_data_dirs: []
+
     utils_docker_service_files: "{{ tuwunel_files | default([]) }}"
     utils_docker_service_ports: "{{ tuwunel_ports | default([]) }}"
+
     utils_docker_service_templates:
       - src: tuwunel.toml.j2
         dest: "{{ tuwunel_config_dir }}/tuwunel.toml"
       - src: livekit.yaml.j2
         dest: "{{ tuwunel_config_dir }}/livekit.yaml"
-      - src: wellknown_client.json.j2
-        dest: "{{ tuwunel_config_dir }}/well-known/client"
-      - src: wellknown_nginx.conf.j2
-        dest: "{{ tuwunel_config_dir }}/wellknown_nginx.conf"
+
     utils_docker_service_compose_template: "{{ playbook_dir }}/roles/tuwunel/templates/docker-compose.yml.j2"

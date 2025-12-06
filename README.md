@@ -21,7 +21,7 @@ A fully automated authentication chain protecting your services:
 ## 🏗 Architecture
 
 - **OS Hardening:** Kernel tuning, UFW firewall, ZRAM, and custom routing hacks for anti-censorship.
-- **Proxy:** Traefik v3 (Dynamic config, Wildcard SSL).
+- **Proxy:** Caddy.
 - **Autoheal:** Containers restart automatically if they feel sick.
 - **Backups:** Restic + Rclone to S3 (via systemd timers, not cron).
 - **Networking:** AmneziaWG (WireGuard UI) for VPN access.
@@ -33,7 +33,7 @@ A fully automated authentication chain protecting your services:
 │   ├── bootstrap      \# First-time server setup
 │   ├── common         \# Hardening, tools, routing
 │   ├── docker         \# Engine \& Compose
-│   ├── traefik        \# The Edge Router
+│   ├── caddy        \# The Edge Router
 │   ├── identity       \# LLDAP + PocketID + TinyAuth (Auto-wired)
 │   ├── tuwunel        \# Conduit + LiveKit (Matrix Stack)
 │   ├── amnezia        \# VPN

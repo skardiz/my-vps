@@ -1,5 +1,3 @@
-{% import 'traefik_macros.j2' as traefik %}
-
 services:
   {{ amnezia_service_name }}:
     container_name: {{ amnezia_service_name }}
@@ -49,14 +47,13 @@ services:
       start_period: 15s
 
     labels:
-{{ traefik.web(
-     service=amnezia_service_name,
-     host=amnezia_domain,
-     port=amnezia_nginx_port,
-     network=docker_network_name,
-     middlewares="geoblock-strict@file,tinyauth@docker"
-   ) | indent(6, first=True) }}
-
+      caddy: "{{ amnezia_domain }}"
+      caddy.import: "secure-headers"
+      caddy.handle.0_forward_auth: "tinyauth:3000"
+      caddy.handle.0_forward_auth.uri: "/api/auth/caddy"
+      caddy.handle.0_forward_auth.copy_headers: "Remote-User Remote-Name Remote-Email Remote-Groups"
+      caddy.handle.1_reverse_proxy: "{{ amnezia_service_name }}:{{ amnezia_nginx_port }}"    
+    
     networks:
       - {{ docker_network_name }}
 

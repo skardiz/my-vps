@@ -29,7 +29,6 @@ trusted_servers = ["matrix.org"]
 log = "{{ tuwunel_log_level }}"
 log_colors = {{ tuwunel_log_colors | lower }}
 
-{% if tuwunel_livekit_enabled %}
 # Well-known delegation
 [global.well_known]
 client = "https://{{ tuwunel_domain }}"
@@ -43,10 +42,9 @@ livekit_sfu_url = "https://{{ tuwunel_livekit_domain }}/sfu/get"
 
 # Delayed events для автовыхода из прерванных звонков
 max_event_delay_duration = "24h"
-{% endif %}
 
 {% if tuwunel_ldap_enabled %}
-# LDAP Configuration (Official Structure)
+# LDAP Configuration
 [global.ldap]
 enable = true
 uri = "{{ tuwunel_ldap_uri }}"

@@ -1,0 +1,17 @@
+ARG CADDY_VERSION={{ caddy_version }}
+FROM caddy:${CADDY_VERSION}-builder AS builder
+
+ARG CADDY_DOCKER_PROXY_VERSION={{ caddy_docker_proxy_version }}
+ENV GOPROXY=https://goproxy.io,direct
+ENV CGO_ENABLED=0
+
+RUN xcaddy build \
+    --with github.com/lucaslorentz/caddy-docker-proxy/v2@${CADDY_DOCKER_PROXY_VERSION}
+
+FROM caddy:${CADDY_VERSION}-alpine
+# УБИРАЕМ apk add curl. Обойдемся встроенными средствами.
+
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+
+ENTRYPOINT ["caddy"]
+CMD ["docker-proxy"]

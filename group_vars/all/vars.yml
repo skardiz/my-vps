@@ -4,6 +4,11 @@ base_domain: "ziix.ru"
 # === DOCKER ===
 docker_base_dir: "/srv/docker"
 docker_network_name: "web"
+docker_image_tag: "latest"
+docker_hc_interval: "60s"
+docker_hc_timeout: "10s"
+docker_hc_retries: 3
+docker_hc_start_period: "10s"
 
 # === ПОЛЬЗОВАТЕЛИ ===
 deploy_user: "deploy"

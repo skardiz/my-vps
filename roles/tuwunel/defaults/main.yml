@@ -4,13 +4,11 @@ tuwunel_service_name: "tuwunel"
 tuwunel_livekit_service_name: "livekit"
 tuwunel_jwt_service_name: "lk-jwt-service"
 
-# Directories (Refactored)
+# Directories
 tuwunel_root: "{{ docker_base_dir }}/{{ tuwunel_service_name }}"
 tuwunel_compose_dir: "{{ tuwunel_root }}"
 tuwunel_config_dir: "{{ tuwunel_root }}/config"
 tuwunel_data_dir: "{{ tuwunel_root }}/data"
-
-# Directories
 
 # Docker images
 tuwunel_image: "docker.io/jevolk/tuwunel:latest"
@@ -31,7 +29,6 @@ tuwunel_livekit_udp_end: 50050
 tuwunel_jwt_port: 8081
 
 # Features
-tuwunel_livekit_enabled: true
 tuwunel_allow_registration: true
 tuwunel_allow_federation: true
 tuwunel_allow_encryption: true
@@ -41,13 +38,11 @@ tuwunel_registration_token: "{{ vault_matrix.registration_token | default('') }}
 tuwunel_livekit_key: "{{ vault_matrix.livekit.key }}"
 tuwunel_livekit_secret: "{{ vault_matrix.livekit.secret }}"
 
-# Traefik
+# Traefik (Legacy)
 tuwunel_docker_network: "{{ docker_network_name }}"
-tuwunel_traefik_entrypoint: "websecure"
-tuwunel_traefik_certresolver: "letsencrypt"
 
 # Performance
-tuwunel_max_request_size: 20971520  # 20MB
+tuwunel_max_request_size: 20971520
 tuwunel_ulimit_nofile_soft: 1048567
 tuwunel_ulimit_nofile_hard: 1048567
 
@@ -57,15 +52,13 @@ tuwunel_log_colors: true
 tuwunel_livekit_log_level: "info"
 tuwunel_jwt_log_level: "info"
 
-# LDAP Integration (OFFICIAL CONFIG)
+# LDAP Integration
 tuwunel_ldap_enabled: true
 tuwunel_ldap_uri: "ldap://lldap:3890"
 tuwunel_ldap_base_dn: "ou=people,dc=ziix,dc=ru"
 tuwunel_ldap_bind_dn: "uid={{ vault_identity.lldap.admin_login }},ou=people,dc=ziix,dc=ru"
 tuwunel_ldap_bind_password: "{{ vault_identity.lldap.admin_password | default('') }}"
-# Файл внутри контейнера
 tuwunel_ldap_bind_password_file: "/var/lib/tuwunel/.ldap_bind_password"
-# Фильтр по документации (используем {username})
 tuwunel_ldap_filter: "(&(objectClass=person)(uid={username}))"
 tuwunel_ldap_uid_attribute: "uid"
 tuwunel_ldap_mail_attribute: "mail"

@@ -16,8 +16,8 @@
       tags: identity
 
     # 3. Инфраструктура (Роутинг, Бэкапы, Лечение)
-    - role: traefik
-      tags: traefik
+    - role: caddy
+      tags: caddy
 
     - role: autoheal
       tags: autoheal

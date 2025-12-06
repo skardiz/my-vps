@@ -1,5 +1,3 @@
-{% import 'traefik_macros.j2' as traefik %}
-
 services:
   {{ syncthing_service_name }}:
     container_name: {{ syncthing_service_name }}
@@ -33,13 +31,12 @@ services:
       start_period: 1m
 
     labels:
-{{ traefik.web(
-     service=syncthing_service_name,
-     host=syncthing_domain,
-     port=syncthing_web_port,
-     network=docker_network_name,
-     middlewares="geoblock-strict@file,tinyauth@docker"
-   ) | indent(6, first=True) }}
+      caddy: "{{ syncthing_domain }}"
+      caddy.import: "secure-headers"
+      caddy.forward_auth: "tinyauth:3000"
+      caddy.forward_auth.uri: "/api/auth/caddy"
+      caddy.forward_auth.copy_headers: "X-User X-Email X-Groups Remote-User Remote-Email"
+      caddy.reverse_proxy: "{{ syncthing_service_name }}:{{ syncthing_web_port }}"
 
     networks:
       - {{ docker_network_name }}

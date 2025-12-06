@@ -48,10 +48,6 @@ vault_services:
   docker_hub:
     password: "dckr_pat_..." # Токен доступа к Docker Hub (необязательно)
 
-  traefik:
-    # Генерация: echo $(htpasswd -nb admin PASSWORD) | sed -e s/\\$/\\$\\$/g
-    dashboard_auth: "admin:$apr1$..."
-
 # 💾 [ BACKUP & STORAGE ]
 vault_backup:
   restic_password: "CHANGE_ME_BACKUP_PASSWORD"

@@ -62,5 +62,4 @@
     password: "{{ docker_registry_password }}"
     state: present
   become: true
-  become_user: "{{ deploy_user }}"
   when: docker_registry_username is defined and docker_registry_password is defined

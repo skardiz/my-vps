@@ -26,11 +26,6 @@ vaultwarden_websocket_enabled: true
 # Secrets
 vaultwarden_admin_token: "{{ vault_vaultwarden.admin_token | default('') }}"
 
-# Traefik
-vaultwarden_docker_network: "{{ docker_network_name }}"
-vaultwarden_traefik_entrypoint: "websecure"
-vaultwarden_traefik_certresolver: "letsencrypt"
-
 # Performance
 vaultwarden_memory_limit: "256M"
 
