@@ -1,147 +1,103 @@
-baseURL = "{{ hugo_base_url }}"
+baseURL = "https://{{ hugo_domain }}/"
 title = "{{ hugo_title }}"
 theme = "{{ hugo_theme }}"
-languageCode = "ru-ru" # Поменял на RU, раз блог русский
-defaultContentLanguage = "ru"
 
-publishDir = "/dest"
-canonifyURLs = false
+# --- ВЕРНУЛ АНГЛИЙСКИЙ КАК ГЛАВНЫЙ ---
+defaultContentLanguage = "en"
+defaultContentLanguageInSubdir = false
 
 enableEmoji = true
 enableGitInfo = true
 
 [pagination]
-  pagerSize = 10
+  pagerSize = 5
 
 [outputs]
-  # JSON нужен для поиска (Fuse.js)
   home = ["HTML", "RSS", "JSON"]
 
-[sitemap]
-  changefreq = "weekly"
-  filename = "sitemap.xml"
-  priority = 0.5
+# --- ЯЗЫК: ENGLISH (Default) ---
+[languages.en]
+  languageName = "🇺🇸"
+  weight = 1
+  title = "{{ hugo_title }}"
+  
+  [languages.en.params]
+    description = "DevOps Engineering Blog"
+    # --- СТАРЫЙ ВИД (Без аватарки) ---
+    homeInfoParams = { Title = "Hi, I'm {{ hugo_author }} 👋", Content = "Welcome to my DevOps engineering blog. Here I share tutorials about Docker, Ansible, and Linux." }
 
-[imaging]
-  resampleFilter = "CatmullRom"
-  quality = 85
+  [[languages.en.menu.main]]
+    name = "Categories"
+    url = "/categories/"
+    weight = 10
+  [[languages.en.menu.main]]
+    name = "Tags"
+    url = "/tags/"
+    weight = 20
 
-[caches]
-  [caches.getjson]
-    maxAge = "1h"
+# --- ЯЗЫК: RUSSIAN ---
+[languages.ru]
+  languageName = "🇷🇺"
+  weight = 2
+  title = "Блог Ziix"
+  
+  [languages.ru.params]
+    description = "Заметки DevOps инженера"
+    # --- СТАРЫЙ ВИД (Без аватарки) ---
+    homeInfoParams = { Title = "Привет, я {{ hugo_author }} 👋", Content = "Добро пожаловать в мой инженерный блог. Пишу про Docker, Ansible, Linux и автоматизацию." }
 
-[markup]
-  [markup.highlight]
-    codeFences = true
-    lineNos = false
-    lineNumbersInTable = true
-    style = "monokai"
-
-  [markup.goldmark]
-    [markup.goldmark.renderer]
-      unsafe = true
-
-[menu]
-  [[menu.main]]
-    name = "Главная"
-    url = "/"
-    weight = 1
-
-  [[menu.main]]
-    name = "Посты"
-    url = "/posts/"
-    weight = 2
-
-  [[menu.main]]
+  [[languages.ru.menu.main]]
+    name = "Категории"
+    url = "/categories/"
+    weight = 10
+  [[languages.ru.menu.main]]
     name = "Теги"
     url = "/tags/"
-    weight = 3
-    
-  # Если создашь страницу archives.md, раскомментируй
-  # [[menu.main]]
-  #   name = "Архив"
-  #   url = "/archives/"
-  #   weight = 4
-  
-  # Если создашь страницу search.md, раскомментируй (или поиск будет по иконке)
-  # [[menu.main]]
-  #   name = "Поиск"
-  #   url = "/search/"
-  #   weight = 5
+    weight = 20
 
+# --- ОБЩИЕ ПАРАМЕТРЫ ---
 [params]
-  description = "{{ hugo_description }}"
-  author = "{{ hugo_author }}"
-  dateFormat = "02.01.2006" # Формат даты более привычный для РФ
-  defaultTheme = "auto" # Авто-тема (темная/светлая) как в системе
-
-  # --- PaperMod UX settings ---
+  defaultTheme = "auto"
   ShowReadingTime = true
   ShowShareButtons = true
   ShowPostNavLinks = true
   ShowBreadCrumbs = true
   ShowCodeCopyButtons = true
-  ShowWordCount = true
-  ShowRssButtonInSectionTermList = true
-  
-  # --- Оглавление (ToC) ---
   ShowToc = true
-  TocOpen = true
-  
-  # --- Поиск (Search) ---
+  TocOpen = false
   ShowSearch = true
-
-  # --- Кнопка "Редактировать на GitHub" ---
-  # Убедись, что путь '/content' верный. Если файлы лежат в корне, убери '/content'
-  editPost = { URL = "https://github.com/ziix-ru/blog/edit/main/content", Text = "Редактировать на GitHub", appendFilePath = true }
-
-  disableSpecial1stPost = false
-  disableScrollToTop = false
-  hidemeta = false
-  hideSummary = false
   
-  # --- Комментарии (Включаем глобально) ---
+  # Комментарии
   comments = true
 
-  [params.homeInfoParams]
-    Title = "Добро пожаловать в {{ hugo_title }}"
-    Content = "{{ hugo_description }}"
+  # Кнопка редактирования
+  editPost = { URL = "https://github.com/ziix-ru/blog/edit/main/content", Text = "Edit on GitHub", appendFilePath = true }
+  
+  # --- ИКОНКИ (Заработают после git push) ---
+  [params.assets]
+    favicon = "/favicon.ico"
+    favicon16x16 = "/favicon-16x16.png"
+    favicon32x32 = "/favicon-32x32.png"
+    apple_touch_icon = "/apple-touch-icon.png"
 
-  # --- Конфиг Giscus ---
-  [params.comments]
-    provider = "giscus"
+assets.css = ["css/custom.css"]
 
-    [params.comments.giscus]
-      repo = "ziix-ru/blog"
-      repoId = "R_kgDOQkPaEw"
-      category = "General"
-      categoryId = "DIC_kwDOQkPaE84Czj8a"
-      mapping = "pathname"
-      reactionsEnabled = "1"
-      emitMetadata = "0"
-      inputPosition = "bottom"
-      theme = "preferred_color_scheme"
-      lang = "ru"
-      loading = "lazy"
-
+# Соцсети
 {% if hugo_social_github %}
   [[params.socialIcons]]
     name = "github"
     url = "{{ hugo_social_github }}"
 {% endif %}
-
 {% if hugo_social_telegram %}
   [[params.socialIcons]]
     name = "telegram"
     url = "{{ hugo_social_telegram }}"
 {% endif %}
-
 {% if hugo_social_email %}
   [[params.socialIcons]]
     name = "email"
     url = "mailto:{{ hugo_social_email }}"
 {% endif %}
-
   [[params.socialIcons]]
     name = "rss"
     url = "/index.xml"

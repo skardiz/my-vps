@@ -45,6 +45,40 @@
   failed_when: false
   changed_when: hugo_git_submodules.changed
 
+- name: Remove default hugo.yaml/toml from repo
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ hugo_site_dir }}/hugo.yaml"
+    - "{{ hugo_site_dir }}/hugo.toml"
+
+# --- НОВЫЙ БЛОК ДЛЯ КОММЕНТАРИЕВ ---
+- name: Ensure layouts/partials directory exists
+  ansible.builtin.file:
+    path: "{{ hugo_site_dir }}/layouts/partials"
+    state: directory
+    mode: '0755'
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+
+- name: Render comments.html partial (Giscus code)
+  ansible.builtin.template:
+    src: comments.html.j2
+    dest: "{{ hugo_site_dir }}/layouts/partials/comments.html"
+    mode: "0644"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+# -------------------------------------
+
+- name: Render Hugo Config (hugo.toml)
+  ansible.builtin.template:
+    src: hugo.toml.j2
+    dest: "{{ hugo_site_dir }}/hugo.toml"
+    mode: "0644"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
@@ -61,11 +95,12 @@
         state: present
         pull: always
         remove_orphans: true
+        recreate: always
       become: true
       become_user: "{{ deploy_user }}"
 
   rescue:
-    - name: Check if builder exited successfully (Exit Code 0 is OK)
+    - name: Check if builder exited successfully
       ansible.builtin.debug:
         msg: "Builder container exited. This is normal for Hugo if ExitCode is 0."
 
@@ -80,7 +115,6 @@
     - name: Verify Nginx is running
       ansible.builtin.command: "docker ps -f name={{ hugo_service_name }} -f status=running --format '{{ '{{' }}.Status{{ '}}' }}'"
       register: hugo_nginx_status
-      # Команда проверки статуса ничего не меняет
       changed_when: false
       failed_when: hugo_nginx_status.stdout == ""
 
