@@ -58,6 +58,8 @@ services:
       resources:
         limits:
           memory: {{ identity_pocketid_memory_limit }}
+    ports:
+      - "127.0.0.1:1411:1411"
     depends_on:
       lldap:
         condition: service_healthy

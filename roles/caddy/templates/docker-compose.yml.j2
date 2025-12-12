@@ -26,6 +26,7 @@ services:
 {% endif %}
       CADDY_INGRESS_NETWORKS: "{{ caddy_docker_network }}"
       CADDY_DOCKER_CADDYFILE_PATH: "/config/Caddyfile"
+      CADDY_DOCKER_SCAN_STOPPED_CONTAINERS: "true"
       ACME_EMAIL: "{{ caddy_acme_email }}"
       TZ: "{{ caddy_timezone }}"
 

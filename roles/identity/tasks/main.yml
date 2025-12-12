@@ -110,18 +110,17 @@
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
-      # Удаляем старую куку
       rm -f /tmp/pocket_cookie.txt
       sleep 5
 
-      # 1. Ссылка входа
+      # 1. Ссылка входа (CLI)
       LINK_OUTPUT=$(docker exec pocketid /app/pocket-id one-time-access-token {{ identity_lldap_admin_dn }})
-      TOKEN=$(echo "$LINK_OUTPUT" | grep -o 'https://[^ ]*' | awk -F/ '{print $NF}')
+      TOKEN=$(echo "$LINK_OUTPUT" | grep -o 'https://[^ ]*' | awk -F/ '{print $NF}' | tr -d '\r')
       if [ -z "$TOKEN" ]; then echo "FAIL: No Token"; exit 1; fi
 
-      # 2. Логин -> Cookie
+      # 2. Логин -> Cookie (FIX: localhost:1411)
       for i in {1..5}; do
-        curl -s -k -c /tmp/pocket_cookie.txt -X POST "https://{{ identity_pocketid_domain }}/api/one-time-access-token/$TOKEN" > /dev/null
+        curl -s -c /tmp/pocket_cookie.txt -X POST "http://127.0.0.1:1411/api/one-time-access-token/$TOKEN" > /dev/null
         if grep -q "__Host-access_token" /tmp/pocket_cookie.txt; then break; fi
         sleep 2
       done
@@ -131,17 +130,17 @@
          exit 0
       fi
 
-      # 3. API Key (через Cookie)
+      # 3. API Key (FIX: localhost:1411)
       EXPIRE_DATE="2035-01-01T00:00:00Z"
-      API_KEY_RESP=$(curl -s -k -b /tmp/pocket_cookie.txt \
-        -X POST "https://{{ identity_pocketid_domain }}/api/api-keys" \
+      API_KEY_RESP=$(curl -s -b /tmp/pocket_cookie.txt \
+        -X POST "http://127.0.0.1:1411/api/api-keys" \
         -H "Content-Type: application/json" \
         -d "{\"name\":\"Ansible Auto Key\",\"description\":\"Automated\",\"expiresAt\":\"$EXPIRE_DATE\"}")
       API_TOKEN=$(echo "$API_KEY_RESP" | jq -r '.token // empty')
 
-      # 4. OIDC Client (через Cookie)
-      OIDC_RESP=$(curl -s -k -b /tmp/pocket_cookie.txt \
-        -X POST "https://{{ identity_pocketid_domain }}/api/oidc/clients" \
+      # 4. OIDC Client (FIX: localhost:1411)
+      OIDC_RESP=$(curl -s -b /tmp/pocket_cookie.txt \
+        -X POST "http://127.0.0.1:1411/api/oidc/clients" \
         -H "Content-Type: application/json" \
         -d '{
           "name": "TinyAuth",
@@ -157,15 +156,13 @@
          exit 0
       fi
 
-      # 5. ПРИНУДИТЕЛЬНАЯ ГЕНЕРАЦИЯ СЕКРЕТА (если его нет)
+      # 5. ПРИНУДИТЕЛЬНАЯ ГЕНЕРАЦИЯ СЕКРЕТА (FIX: localhost:1411)
       CLIENT_SECRET=$(echo "$OIDC_RESP" | jq -r '.credentials.secret // .clientSecret // empty')
 
       if [ -z "$CLIENT_SECRET" ]; then
-          # Если секрета нет — генерируем новый!
-          SECRET_RESP=$(curl -s -k -b /tmp/pocket_cookie.txt \
-            -X POST "https://{{ identity_pocketid_domain }}/api/oidc/clients/$CLIENT_ID/secret" \
+          SECRET_RESP=$(curl -s -b /tmp/pocket_cookie.txt \
+            -X POST "http://127.0.0.1:1411/api/oidc/clients/$CLIENT_ID/secret" \
             -H "Content-Type: application/json")
-          # Парсим секрет из ответа генерации
           CLIENT_SECRET=$(echo "$SECRET_RESP" | jq -r '.secret // empty')
       fi
 

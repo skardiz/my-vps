@@ -10,11 +10,12 @@ services:
         limits:
           memory: {{ beszel_hub_memory }}
 
+    ports:
+      - "127.0.0.1:8090:8090"
+
     environment:
       TZ: "{{ beszel_timezone }}"
       APP_URL: "https://{{ beszel_domain }}"
-
-      # --- [ Auto-Setup Admin ] ---
       USER_EMAIL: "{{ beszel_admin_email }}"
       USER_PASSWORD: "{{ beszel_admin_password }}"
       USER_CREATION: "true"
@@ -38,38 +39,26 @@ services:
 {% if beszel_ingress_provider == 'caddy' %}
       caddy: "{{ beszel_domain }}"
       caddy.import: "secure-headers"
-
-{% if beszel_use_sablier | default(false) %}
-      caddy.route.1_sablier: ""
-      caddy.route.1_sablier.group: "{{ beszel_sablier_group }}"
-      caddy.route.1_sablier.names: "{{ beszel_hub_container }}"
-      caddy.route.1_sablier.dynamic: ""
-      caddy.route.1_sablier.dynamic.display_name: "{{ beszel_sablier_display_name }}"
-      caddy.route.1_sablier.dynamic.theme: "ghost"
-      caddy.route.1_sablier.dynamic.refresh_frequency: "5s"
-{% endif %}
-
-      caddy.route.9_reverse_proxy: "{{ beszel_hub_container }}:8090"
+      caddy.reverse_proxy: "{{ beszel_hub_container }}:8090"
 {% endif %}
 
 {% if beszel_enable_autoheal | bool %}
       autoheal: "true"
 {% endif %}
 
-{% if beszel_use_sablier | default(false) %}
-      sablier.enable: "true"
-      sablier.group: "{{ beszel_sablier_group }}"
-      sablier.window: "{{ beszel_sablier_window }}"
-{% endif %}
 
-
-  # 2. Beszel Agent (Active Mode)
-  # Агент НЕ спит (Sablier выключен), он должен слать данные.
+  # 2. Beszel Agent
   agent:
     image: "{{ beszel_agent_image }}:{{ beszel_agent_tag }}"
     container_name: "{{ beszel_agent_container }}"
     restart: "{{ beszel_restart_policy }}"
     network_mode: host
+
+    healthcheck:
+      test: ["CMD", "/agent", "-v"]
+      interval: {{ beszel_hc_interval }}
+      timeout: {{ beszel_hc_timeout }}
+      retries: {{ beszel_hc_retries }}
 
     deploy:
       resources:
@@ -78,17 +67,15 @@ services:
 
     environment:
       KEY: "{{ beszel_dynamic_key | default(beszel_agent_key) }}"
-      HUB_URL: "https://{{ beszel_domain }}"
+      HUB_URL: "http://127.0.0.1:8090"
       TOKEN: "{{ beszel_dynamic_token | default('') }}"
       FILESYSTEM: "/extra-filesystems/root"
 
     volumes:
-      # Агенту нужен прямой доступ к сокету для статистики
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /:/extra-filesystems/root:ro
-      
+
     labels:
-      # Агента мониторит Autoheal, но он не засыпает
 {% if beszel_enable_autoheal | bool %}
       autoheal: "true"
 {% endif %}

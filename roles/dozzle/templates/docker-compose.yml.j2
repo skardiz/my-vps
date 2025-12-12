@@ -65,7 +65,6 @@ services:
 {% if dozzle_use_sablier | default(false) %}
       caddy.route.1_sablier: ""
       caddy.route.1_sablier.group: "{{ dozzle_sablier_group }}"
-      caddy.route.1_sablier.names: "{{ dozzle_container_name }}"
       caddy.route.1_sablier.dynamic: ""
       caddy.route.1_sablier.dynamic.display_name: "{{ dozzle_sablier_display_name }}"
       caddy.route.1_sablier.dynamic.theme: "{{ dozzle_sablier_theme }}"

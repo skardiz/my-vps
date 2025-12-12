@@ -45,10 +45,6 @@ beszel_agent_memory: "64M"
 beszel_use_socket_proxy: "{{ use_socket_proxy | default(false) }}"
 beszel_enable_autoheal: "{{ use_autoheal | default(true) }}"
 beszel_use_sablier: "{{ use_sablier | default(false) }}"
-# Sablier для Beszel Hub
-beszel_sablier_window: "10m"
-beszel_sablier_group: "beszel"
-beszel_sablier_display_name: "Beszel Monitor"
 
 # [ Healthcheck ]
 beszel_hc_interval: "30s"

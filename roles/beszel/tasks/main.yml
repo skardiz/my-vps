@@ -29,59 +29,156 @@
     - "{{ beszel_hub_data }}"
   tags: [beszel, deploy]
 
-# 2. Рендеринг Compose
-- name: Render docker-compose.yml
+# ==============================================================================
+# 🤖 SECRET MANAGEMENT (Hub-driven)
+# ==============================================================================
+
+# 1. Проверяем, есть ли уже сохраненные секреты
+- name: Check for existing secrets file
+  ansible.builtin.stat:
+    path: "{{ beszel_root }}/.beszel_secrets"
+  register: beszel_secrets_file
+  tags: [beszel, config]
+
+# 2. Если файл есть — читаем
+- name: Read existing secrets
+  ansible.builtin.slurp:
+    src: "{{ beszel_root }}/.beszel_secrets"
+  register: beszel_secrets_content
+  when: beszel_secrets_file.stat.exists
+  tags: [beszel, config]
+
+# 3. BOOTSTRAP: Если секретов нет, запускаем Hub, чтобы он их родил
+- name: Render Bootstrap docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ beszel_root }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
+  vars:
+    # Временные заглушки, чтобы Hub запустился. Агент пока упадет/не подключится.
+    beszel_dynamic_key: "bootstrap_waiting"
+    beszel_dynamic_token: "bootstrap_waiting"
+  when: not beszel_secrets_file.stat.exists
   tags: [beszel, deploy]
 
-# 3. Деплой Стека (Hub + Agent)
-- name: Deploy Beszel Stack
+- name: Deploy Beszel Hub (Bootstrap)
   community.docker.docker_compose_v2:
     project_src: "{{ beszel_root }}"
     state: present
-    pull: always
-    remove_orphans: true
+    pull: missing
+    services: ["hub"] # Запускаем ТОЛЬКО Hub
   become: true
   become_user: "{{ deploy_user }}"
+  when: not beszel_secrets_file.stat.exists
   tags: [beszel, deploy]
 
-# 4. Проверка здоровья
-- name: Wait for Beszel Hub container to be running
-  community.docker.docker_container_info:
-    name: "{{ beszel_hub_container }}"
-  register: beszel_hub_info
-  until:
-    - beszel_hub_info.exists
-    - beszel_hub_info.container is defined
-    - beszel_hub_info.container.State.Status == "running"
-  retries: 5
+- name: Wait for Beszel Hub API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8090/health"
+    status_code: 200
+  register: beszel_api_check
+  until: beszel_api_check.status == 200
+  retries: 20
   delay: 3
-  changed_when: false
-  tags: [beszel, deploy]
+  when: not beszel_secrets_file.stat.exists
+  tags: [beszel, config]
 
-# ==============================================================================
-# 🤖 SELF-CONTAINED OIDC SETUP FOR BESZEL
-# ==============================================================================
-
-- name: "⚡ AUTO-CONFIG: Generate PocketID Token"
+# 4. Забираем ключи у Hub'а (Local API)
+- name: "⚡ AUTO-CONFIG: Fetch Beszel Secrets"
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
-      if docker ps | grep -q pocketid; then
-        LINK_OUTPUT=$(docker exec pocketid /app/pocket-id one-time-access-token {{ beszel_lldap_admin_dn }})
-        echo "$LINK_OUTPUT" | grep -o 'https://[^ ]*' | awk -F/ '{print $NF}'
-      else
+      # Login Admin (Localhost!)
+      ADM_TOK=$(curl -s -X POST "http://127.0.0.1:8090/api/collections/_superusers/auth-with-password" \
+        -H "Content-Type: application/json" \
+        -d '{"identity":"{{ beszel_admin_email }}","password":"{{ beszel_admin_password }}"}' | jq -r '.token')
+
+      # Get Pub Key (Localhost!)
+      KEY_RESP=$(curl -s "http://127.0.0.1:8090/api/beszel/getkey" -H "Authorization: $ADM_TOK")
+      PUB_KEY=$(echo "$KEY_RESP" | jq -r '.key // empty')
+
+      # Login User (Localhost!)
+      USER_TOK=$(curl -s -X POST "http://127.0.0.1:8090/api/collections/users/auth-with-password" \
+        -H "Content-Type: application/json" \
+        -d '{"identity":"{{ beszel_admin_email }}","password":"{{ beszel_admin_password }}"}' | jq -r '.token')
+
+      if [ -z "$USER_TOK" ] || [ "$USER_TOK" == "null" ]; then USER_TOK=$ADM_TOK; fi
+
+      # Get Token (Localhost!)
+      TOK_RESP=$(curl -s "http://127.0.0.1:8090/api/beszel/universal-token?enable=1" -H "Authorization: $USER_TOK")
+      UNIV_TOKEN=$(echo "$TOK_RESP" | jq -r '.token // empty')
+
+      echo "KEY:$PUB_KEY"
+      echo "TOKEN:$UNIV_TOKEN"
+    executable: /bin/bash
+  register: beszel_secrets_new
+  when: not beszel_secrets_file.stat.exists
+  changed_when: false # Это чтение, не изменение
+  tags: [beszel, config]
+
+# 5. Сохраняем ключи в файл (чтобы не дергать API каждый раз)
+- name: Save Beszel Secrets to file
+  ansible.builtin.copy:
+    content: |
+      BESZEL_PUB_KEY={{ beszel_secrets_new.stdout | regex_search('KEY:(ssh-ed25519 [^\s]+)', '\1') | first }}
+      BESZEL_AGENT_TOKEN={{ beszel_secrets_new.stdout | regex_search('TOKEN:([a-f0-9-]+)', '\1') | first }}
+    dest: "{{ beszel_root }}/.beszel_secrets"
+    mode: "0600"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+  when: not beszel_secrets_file.stat.exists
+  tags: [beszel, config]
+
+# 6. Определяем финальные факты
+- name: Set Beszel Final Facts
+  ansible.builtin.set_fact:
+    beszel_final_key: >-
+      {{ (beszel_secrets_content['content'] | b64decode | regex_search('BESZEL_PUB_KEY=([^\n]+)', '\1') | first)
+      if beszel_secrets_file.stat.exists
+      else (beszel_secrets_new.stdout | regex_search('KEY:(ssh-ed25519 [^\s]+)', '\1') | first) }}
+    beszel_final_token: >-
+      {{ (beszel_secrets_content['content'] | b64decode | regex_search('BESZEL_AGENT_TOKEN=([^\n]+)', '\1') | first)
+      if beszel_secrets_file.stat.exists
+      else (beszel_secrets_new.stdout | regex_search('TOKEN:([a-f0-9-]+)', '\1') | first) }}
+  tags: [beszel, config]
+
+# ==============================================================================
+# 🤖 OIDC SETUP
+# ==============================================================================
+
+- name: Check for existing OIDC secrets file
+  ansible.builtin.stat:
+    path: "{{ beszel_root }}/.beszel_oidc_secrets"
+  register: beszel_oidc_file
+  tags: [beszel, config, oidc]
+
+- name: Read existing OIDC secrets
+  ansible.builtin.slurp:
+    src: "{{ beszel_root }}/.beszel_oidc_secrets"
+  register: beszel_oidc_content
+  when: beszel_oidc_file.stat.exists
+  tags: [beszel, config, oidc]
+
+- name: Generate PocketID Token (if needed)
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      # Ищем контейнер без Jinja-конфликтов
+      if [ -z "$(docker ps -q -f 'name=^pocketid$')" ]; then
         echo ""
+        exit 0
       fi
+
+      RAW_OUTPUT=$(docker exec pocketid /app/pocket-id one-time-access-token {{ beszel_lldap_admin_dn }} 2>&1)
+      TOKEN=$(printf '%s\n' "$RAW_OUTPUT" | grep -oE 'lc/[a-zA-Z0-9]+' | head -n1 | cut -d/ -f2)
+      echo "$TOKEN"
     executable: /bin/bash
   register: beszel_pocketid_token_gen
-  when: beszel_client_id | length == 0
-  failed_when: false
+  when:
+    - (beszel_client_id | default('') | length == 0)
+    - not beszel_oidc_file.stat.exists
   changed_when: false
   tags: [beszel, config, oidc]
 
@@ -89,12 +186,15 @@
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
-      TOKEN="{{ beszel_pocketid_token_gen.stdout }}"
-      if [ -z "$TOKEN" ]; then echo "SKIP: No Token"; exit 0; fi
+      TOKEN="{{ beszel_pocketid_token_gen.stdout | trim }}"
+      if [ -z "$TOKEN" ]; then echo "SKIP"; exit 0; fi
+
       rm -f /tmp/beszel_pocket_cookie.txt
-      curl -s -k -c /tmp/beszel_pocket_cookie.txt -X POST "https://{{ beszel_identity_domain }}/api/one-time-access-token/$TOKEN" > /dev/null
-      RESP=$(curl -s -k -b /tmp/beszel_pocket_cookie.txt \
-        -X POST "https://{{ beszel_identity_domain }}/api/oidc/clients" \
+      # Используем локальный адрес PocketID
+      curl -s -c /tmp/beszel_pocket_cookie.txt -X POST "http://127.0.0.1:1411/api/one-time-access-token/$TOKEN" > /dev/null
+
+      RESP=$(curl -s -b /tmp/beszel_pocket_cookie.txt \
+        -X POST "http://127.0.0.1:1411/api/oidc/clients" \
         -H "Content-Type: application/json" \
         -d '{
           "name": "Beszel Monitor",
@@ -105,44 +205,95 @@
         }')
       ID=$(echo "$RESP" | jq -r '.id // empty')
       SECRET=$(echo "$RESP" | jq -r '.credentials.secret // .clientSecret // empty')
+
       if [ -n "$ID" ] && [ -z "$SECRET" ]; then
-          S_RESP=$(curl -s -k -b /tmp/beszel_pocket_cookie.txt \
-            -X POST "https://{{ beszel_identity_domain }}/api/oidc/clients/$ID/secret" \
+          S_RESP=$(curl -s -b /tmp/beszel_pocket_cookie.txt \
+            -X POST "http://127.0.0.1:1411/api/oidc/clients/$ID/secret" \
             -H "Content-Type: application/json")
           SECRET=$(echo "$S_RESP" | jq -r '.secret // empty')
       fi
+
       if [ -n "$ID" ] && [ -n "$SECRET" ]; then
          echo "BZ_ID:$ID"
          echo "BZ_SECRET:$SECRET"
       fi
       rm -f /tmp/beszel_pocket_cookie.txt
     executable: /bin/bash
-  when: beszel_client_id | length == 0
-  register: beszel_oidc_client
-  changed_when: "'BZ_ID:' in beszel_oidc_client.stdout"
+  when:
+    - (beszel_client_id | default('') | length == 0)
+    - not beszel_oidc_file.stat.exists
+    - beszel_pocketid_token_gen.stdout | length > 0
+  register: beszel_oidc_new
+  changed_when: "'BZ_ID:' in beszel_oidc_new.stdout"
   tags: [beszel, config, oidc]
 
-- name: Set Beszel OIDC Facts
+- name: Save OIDC secrets to file
+  ansible.builtin.copy:
+    content: |
+      BESZEL_OIDC_CLIENT_ID={{ beszel_oidc_new.stdout | regex_search('BZ_ID:([a-zA-Z0-9-]+)', '\1') | first }}
+      BESZEL_OIDC_CLIENT_SECRET={{ beszel_oidc_new.stdout | regex_search('BZ_SECRET:([a-zA-Z0-9-]+)', '\1') | first }}
+    dest: "{{ beszel_root }}/.beszel_oidc_secrets"
+    mode: "0600"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+  when:
+    - (beszel_client_id | default('') | length == 0)
+    - not beszel_oidc_file.stat.exists
+    - beszel_oidc_new.changed
+  tags: [beszel, config, oidc]
+
+- name: Set Beszel OIDC Facts (Final)
   ansible.builtin.set_fact:
     beszel_final_client_id: >-
-      {{ (beszel_oidc_client.stdout | default('') | regex_search('BZ_ID:([a-zA-Z0-9-]+)', '\1') | first)
-      if (beszel_oidc_client.changed and 'BZ_ID:' in beszel_oidc_client.stdout)
-      else beszel_client_id }}
+      {{ beszel_client_id if (beszel_client_id | default('') | length > 0)
+      else (beszel_oidc_content['content'] | b64decode | regex_search('BESZEL_OIDC_CLIENT_ID=([^\n]+)', '\1') | first) if beszel_oidc_file.stat.exists
+      else (beszel_oidc_new.stdout | default('') | regex_search('BZ_ID:([a-zA-Z0-9-]+)', '\1') | first) }}
     beszel_final_client_secret: >-
-      {{ (beszel_oidc_client.stdout | default('') | regex_search('BZ_SECRET:([a-zA-Z0-9-]+)', '\1') | first)
-      if (beszel_oidc_client.changed and 'BZ_SECRET:' in beszel_oidc_client.stdout)
-      else beszel_client_secret }}
+      {{ beszel_client_secret if (beszel_client_secret | default('') | length > 0)
+      else (beszel_oidc_content['content'] | b64decode | regex_search('BESZEL_OIDC_CLIENT_SECRET=([^\n]+)', '\1') | first) if beszel_oidc_file.stat.exists
+      else (beszel_oidc_new.stdout | default('') | regex_search('BZ_SECRET:([a-zA-Z0-9-]+)', '\1') | first) }}
   tags: [beszel, config, oidc]
 
+# ==============================================================================
+# 🚀 FINAL DEPLOYMENT
+# ==============================================================================
+
+- name: Render docker-compose.yml (Final)
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ beszel_root }}/docker-compose.yml"
+    mode: "0640"
+    owner: "{{ deploy_user }}"
+    group: docker
+  vars:
+    beszel_dynamic_key: "{{ beszel_final_key }}"
+    beszel_dynamic_token: "{{ beszel_final_token }}"
+  tags: [beszel, deploy]
+
+- name: Deploy Beszel Stack (Full)
+  community.docker.docker_compose_v2:
+    project_src: "{{ beszel_root }}"
+    state: present
+    pull: missing
+    remove_orphans: true
+    recreate: auto
+  become: true
+  become_user: "{{ deploy_user }}"
+  tags: [beszel, deploy]
+
+# Патчинг OIDC (через локальный API)
 - name: "⚡ AUTO-CONFIG: Patch Beszel OIDC Settings"
   ansible.builtin.shell:
     cmd: |
       set -o pipefail
-      TOKEN=$(curl -s -X POST "https://{{ beszel_domain }}/api/collections/_superusers/auth-with-password" \
+      # Локальный адрес API
+      TOKEN=$(curl -s -X POST "http://127.0.0.1:8090/api/collections/_superusers/auth-with-password" \
         -H "Content-Type: application/json" \
         -d '{"identity":"{{ beszel_admin_email }}","password":"{{ beszel_admin_password }}"}' | jq -r '.token')
+
       if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then echo "FAIL: Login"; exit 1; fi
-      curl -X PATCH "https://{{ beszel_domain }}/api/collections/users" \
+
+      curl -X PATCH "http://127.0.0.1:8090/api/collections/users" \
         -H "Authorization: $TOKEN" \
         -H "Content-Type: application/json" \
         -d "{
@@ -169,65 +320,5 @@
     - beszel_final_client_id | length > 0
     - beszel_final_client_secret | length > 0
   register: beszel_patch_result
-  changed_when: beszel_patch_result.rc == 0
-  tags: [beszel, config, oidc]
-
-- name: "⚡ AUTO-CONFIG: Fetch Beszel Secrets (User Context)"
-  ansible.builtin.shell:
-    cmd: |
-      set -o pipefail
-      ADM_TOK=$(curl -s -X POST "https://{{ beszel_domain }}/api/collections/_superusers/auth-with-password" \
-        -H "Content-Type: application/json" \
-        -d '{"identity":"{{ beszel_admin_email }}","password":"{{ beszel_admin_password }}"}' | jq -r '.token')
-      KEY_RESP=$(curl -s "https://{{ beszel_domain }}/api/beszel/getkey" -H "Authorization: $ADM_TOK")
-      PUB_KEY=$(echo "$KEY_RESP" | jq -r '.key // empty')
-      USER_TOK=$(curl -s -X POST "https://{{ beszel_domain }}/api/collections/users/auth-with-password" \
-        -H "Content-Type: application/json" \
-        -d '{"identity":"{{ beszel_admin_email }}","password":"{{ beszel_admin_password }}"}' | jq -r '.token')
-      if [ -z "$USER_TOK" ] || [ "$USER_TOK" == "null" ]; then USER_TOK=$ADM_TOK; fi
-      TOK_RESP=$(curl -s "https://{{ beszel_domain }}/api/beszel/universal-token?enable=1" -H "Authorization: $USER_TOK")
-      UNIV_TOKEN=$(echo "$TOK_RESP" | jq -r '.token // empty')
-      echo "KEY:$PUB_KEY"
-      echo "TOKEN:$UNIV_TOKEN"
-    executable: /bin/bash
-  register: beszel_secrets
   changed_when: false
-  tags: [beszel, config, agent]
-
-- name: Set Beszel Agent Facts
-  ansible.builtin.set_fact:
-    beszel_dynamic_key: >-
-      {{ beszel_secrets.stdout | regex_search('KEY:(ssh-ed25519 [^\s]+)', '\1') | first | default(beszel_agent_key) }}
-    beszel_dynamic_token: >-
-      {{ beszel_secrets.stdout | regex_search('TOKEN:([a-f0-9-]+)', '\1') | first }}
-  tags: [beszel, config]
-
-# 5. Обновление Compose с динамическими секретами
-- name: Update Docker Compose with Dynamic Secrets
-  ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: "{{ beszel_root }}/docker-compose.yml"
-    mode: '0640'
-    owner: "{{ deploy_user }}"
-    group: docker
-  register: beszel_compose_update
-  tags: [beszel, config]
-
-- name: Restart Beszel to apply Secrets
-  community.docker.docker_compose_v2:
-    project_src: "{{ beszel_root }}"
-    state: present
-    pull: never
-  when: beszel_compose_update.changed or beszel_secrets.stdout | length > 0
-  tags: [beszel, config]
-
-- name: Show Post-Install Instructions & Secrets
-  ansible.builtin.debug:
-    msg:
-      - "🚀 Beszel Hub deployed at https://{{ beszel_domain }}"
-      - "✅ Active Agent Configured & Registered (User Context)"
-      - "---------------------------------------------------"
-      - "Dynamic Key:   {{ beszel_dynamic_key }}"
-      - "Dynamic Token: {{ beszel_dynamic_token }}"
-      - "---------------------------------------------------"
-  tags: [beszel, info]
+  tags: [beszel, config, oidc]
