@@ -49,6 +49,10 @@
     # ==========================================================================
     # LAYER 5: APPLICATIONS (Services Menu)
     # ==========================================================================
+    - role: ziix.infra.homer
+      when: homer_enabled | default(false)
+      tags: homer
+
     - role: ziix.infra.dozzle
       when: dozzle_enabled | default(false)
       tags: dozzle

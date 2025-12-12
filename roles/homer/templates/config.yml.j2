@@ -1,0 +1,28 @@
+---
+{# Собираем конфиг как структуру данных и дампим в YAML #}
+{% set cfg = {
+  'title': homer_title,
+  'subtitle': homer_subtitle,
+  'logo': 'assets/' ~ homer_logo,
+  'header': (homer_header | bool),
+  'footer': homer_footer,
+  'theme': homer_theme,
+  'columns': homer_columns,
+  'connectivityCheck': (homer_connectivity_check | bool),
+  'defaults': {
+    'layout': 'columns',
+    'colorTheme': 'auto'
+  },
+  'colors': homer_colors,
+  'services': homer_services
+} %}
+
+{% if homer_links is defined %}
+{%   set _ = cfg.update({'links': homer_links}) %}
+{% endif %}
+
+{% if homer_message is defined %}
+{%   set _ = cfg.update({'message': homer_message}) %}
+{% endif %}
+
+{{ cfg | ansible.builtin.to_nice_yaml(indent=2, width=9999) }}

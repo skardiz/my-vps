@@ -1,0 +1,60 @@
+---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - homer_domain is defined
+      - deploy_user is defined
+    fail_msg: "Required variables missing for Homer"
+  tags: [homer, check]
+
+- name: Ensure Homer directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+  loop:
+    - "{{ homer_base_dir }}"
+    - "{{ homer_assets_dir }}"
+  tags: [homer, filesystem]
+
+# - name: Copy Logo
+#   ansible.builtin.copy:
+#     src: "logo.png"
+#     dest: "{{ homer_assets_dir }}/logo.png"
+#     mode: "0644"
+#     owner: "{{ deploy_user }}"
+#     group: "{{ deploy_user }}"
+#   ignore_errors: true
+
+- name: Render Config (config.yml)
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ homer_assets_dir }}/config.yml" # <-- Важно: кладем в assets
+    mode: "0644"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+  register: homer_config
+  tags: [homer, config]
+
+- name: Render docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ homer_base_dir }}/docker-compose.yml"
+    mode: "0640"
+    owner: "{{ deploy_user }}"
+    group: docker
+  register: homer_compose
+  tags: [homer, config]
+
+- name: Deploy Homer Stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ homer_base_dir }}"
+    state: present
+    pull: missing
+    remove_orphans: true
+    recreate: "{{ 'always' if (homer_config.changed or homer_compose.changed) else 'auto' }}"
+  become: true
+  become_user: "{{ deploy_user }}"
+  tags: [homer, deploy]

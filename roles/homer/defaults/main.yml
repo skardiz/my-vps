@@ -1,0 +1,115 @@
+---
+# [ Service Info ]
+homer_service_name: "homer"
+homer_container_name: "{{ homer_service_name }}"
+homer_image: "b4bz/homer"
+homer_image_tag: "latest"
+
+# [ Directories ]
+homer_base_dir: "{{ docker_base_dir }}/{{ homer_service_name }}"
+homer_assets_dir: "{{ homer_base_dir }}/assets"
+
+# [ Network & Ingress ]
+homer_network: "{{ docker_network_name }}"
+homer_domain: "hub.{{ base_domain }}"
+homer_port: 8080
+homer_ingress_provider: "caddy"
+
+# [ Auth / Security ]
+# Включаем защиту через TinyAuth
+homer_auth_enabled: true
+homer_auth_header_user: "X-POCKETID-USER"
+
+# [ Resources ]
+homer_memory_limit: "{{ docker_memory_limit | default('128M') }}"
+homer_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
+homer_timezone: "{{ docker_timezone | default('Europe/Moscow') }}"
+homer_puid: "{{ docker_puid | default('1000') }}"
+homer_pgid: "{{ docker_pgid | default('1000') }}"
+
+# [ UI Configuration ]
+homer_title: "Ziix Homelab"
+homer_subtitle: "Infrastructure Dashboard"
+homer_logo: "logo.png"
+homer_header: true
+homer_footer: '<p>Created with <a href="https://github.com/bastienwirtz/homer">Homer</a></p>'
+homer_theme: "default"
+homer_columns: "3"
+homer_connectivity_check: true
+
+# [ Colors ]
+homer_colors:
+  light:
+    highlight-primary: "#3367d6"
+  dark:
+    highlight-primary: "#3367d6"
+
+# [ Navbar Links ]
+homer_links:
+  - name: "Blog"
+    icon: "fas fa-blog"
+    url: "https://ziix.ru"
+    target: "_blank"
+  - name: "GitHub"
+    icon: "fab fa-github"
+    url: "https://github.com/ziix-ru"
+    target: "_blank"
+
+# [ Services List ]
+homer_services:
+  - name: "Monitoring & Logs"
+    icon: "fas fa-chart-line"
+    items:
+      - name: "Beszel"
+        icon: "fas fa-chart-area"
+        subtitle: "System Monitoring"
+        url: "https://mon.{{ base_domain }}"
+        target: "_blank"
+
+      - name: "Dozzle"
+        icon: "fas fa-box-open"
+        subtitle: "Container Logs"
+        url: "https://dozzle.{{ base_domain }}"
+        target: "_blank"
+
+  - name: "Identity & Security"
+    icon: "fas fa-shield-alt"
+    items:
+      - name: "PocketID"
+        icon: "fas fa-id-card"
+        subtitle: "OIDC Provider"
+        url: "https://auth.{{ base_domain }}"
+        target: "_blank"
+
+      - name: "LLDAP"
+        icon: "fas fa-users-cog"
+        subtitle: "User Directory"
+        url: "https://ldap.{{ base_domain }}"
+        target: "_blank"
+
+      - name: "Vaultwarden"
+        icon: "fas fa-key"
+        subtitle: "Password Manager"
+        url: "https://vault.{{ base_domain }}"
+        target: "_blank"
+
+      - name: "Amnezia VPN"
+        icon: "fas fa-lock"
+        subtitle: "VPN Gateway"
+        url: "https://amnezia.{{ base_domain }}"
+        target: "_blank"
+
+  - name: "Applications"
+    icon: "fas fa-th"
+    items:
+      - name: "Syncthing"
+        icon: "fas fa-sync"
+        subtitle: "File Sync"
+        url: "https://syncthing.{{ base_domain }}"
+        target: "_blank"
+
+# [ Healthcheck ]
+homer_hc_interval: "{{ docker_hc_interval | default('30s') }}"
+homer_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
+homer_hc_retries: "{{ docker_hc_retries | default(3) }}"
+homer_hc_start_period: "10s"

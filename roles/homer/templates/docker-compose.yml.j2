@@ -1,0 +1,54 @@
+services:
+  {{ homer_service_name }}:
+    image: "{{ homer_image }}:{{ homer_image_tag }}"
+    container_name: "{{ homer_container_name }}"
+    restart: "{{ homer_restart_policy }}"
+
+    deploy:
+      resources:
+        limits:
+          memory: {{ homer_memory_limit }}
+
+    environment:
+      - TZ={{ homer_timezone }}
+      - PUID={{ homer_puid }}
+      - PGID={{ homer_pgid }}
+
+    volumes:
+      - "{{ homer_assets_dir }}:/www/assets"
+
+    networks:
+      - {{ homer_network }}
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:{{ homer_port }}/ || exit 1"]
+      interval: {{ homer_hc_interval }}
+      timeout: {{ homer_hc_timeout }}
+      retries: {{ homer_hc_retries }}
+      start_period: {{ homer_hc_start_period }}
+
+    labels:
+      # === INGRESS: CADDY ===
+{% if homer_ingress_provider == 'caddy' %}
+      caddy: "{{ homer_domain }}"
+      caddy.import: "secure-headers"
+
+      # Step 0: Auth (TinyAuth)
+{% if homer_auth_enabled | bool %}
+      caddy.route.0_forward_auth: "tinyauth:3000"
+      caddy.route.0_forward_auth.uri: "/api/auth/caddy"
+      caddy.route.0_forward_auth.copy_headers: "{{ homer_auth_header_user }} Remote-Name Remote-Email Remote-Groups"
+{% endif %}
+
+      # Step 9: Proxy
+      caddy.route.9_reverse_proxy: "{{ homer_service_name }}:{{ homer_port }}"
+{% endif %}
+
+      # === AUTOHEAL ===
+{% if use_autoheal | default(true) %}
+      autoheal: "true"
+{% endif %}
+
+networks:
+  {{ homer_network }}:
+    external: true

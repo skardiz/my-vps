@@ -57,6 +57,7 @@ use_cloudflare_dns: true # Использовать ли Cloudflare Wildcard
 identity_enabled: true    # Auth (LLDAP, PocketID, TinyAuth)
 
 # --- Management & Monitoring ---
+homer_enabled: true    # Dashboard (Homer)
 dozzle_enabled: true      # Logs Viewer
 beszel_enabled: true      # Lightweight Monitoring
 watchtower_enabled: true

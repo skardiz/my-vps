@@ -21,14 +21,37 @@
     - "{{ identity_data_dir }}/pocketid/data"
     - "{{ identity_data_dir }}/tinyauth"
 
+# ==============================================================================
+# 🤖 SECRET STORAGE (Idempotency)
+# ==============================================================================
+- name: Check for existing TinyAuth secrets file
+  ansible.builtin.stat:
+    path: "{{ identity_compose_dir }}/.tinyauth_oidc_secrets"
+  register: identity_oidc_file
+  tags: [deploy, identity, bootstrap]
+
+- name: Read existing TinyAuth secrets
+  ansible.builtin.slurp:
+    src: "{{ identity_compose_dir }}/.tinyauth_oidc_secrets"
+  register: identity_oidc_content
+  when: identity_oidc_file.stat.exists
+  tags: [deploy, identity, bootstrap]
+
 # 2. Рендеринг Compose
-- name: Render docker-compose.yml (Initial)
+- name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ identity_compose_dir }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
+  # Используем секреты из файла, если они есть
+  vars:
+    identity_tinyauth_dynamic_id: >-
+      {{ (identity_oidc_content['content'] | b64decode | regex_search('CLIENT_ID=([^\n]+)', '\1') | first) if identity_oidc_file.stat.exists else '' }}
+    identity_tinyauth_dynamic_secret: >-
+      {{ (identity_oidc_content['content'] | b64decode | regex_search('CLIENT_SECRET=([^\n]+)', '\1') | first) if identity_oidc_file.stat.exists else '' }}
+  tags: [deploy, identity]
 
 # 3. Запуск Стека
 - name: Deploy Identity Stack
@@ -37,17 +60,18 @@
     state: present
     pull: always
     remove_orphans: true
-  become: true  # <--- ДОБАВЛЕНО
+    recreate: auto # Изменил на auto
+  become: true
   become_user: "{{ deploy_user }}"
   tags: [deploy, identity]
 
 # 4. Проверка здоровья LLDAP
 - name: Wait for LLDAP container to be healthy
   ansible.builtin.command:
-    cmd: docker inspect --format='{{ '{{' }}.State.Health.Status{{ '}}' }}' lldap
+    cmd: docker inspect --format='{{ "{{" }}.State.Health.Status{{ "}}" }}' lldap
   register: identity_lldap_health
   retries: 30
-  delay: 2
+  delay: 5
   until: identity_lldap_health.stdout == 'healthy'
   changed_when: false
   tags: [deploy, identity, bootstrap]
@@ -83,8 +107,8 @@
   register: identity_lldap_bootstrap
   changed_when: identity_lldap_bootstrap.rc == 0
   failed_when: identity_lldap_bootstrap.rc != 0
-  no_log: false
-  # При изменении аттрибутов админа стоит пнуть PocketID, чтобы он перечитал LDAP
+  # Пропускаем, если секреты уже есть (предполагаем, что инициализация была)
+  when: not identity_oidc_file.stat.exists
   notify: Restart PocketID for LDAP sync
   tags: [deploy, identity, bootstrap]
 
@@ -103,6 +127,8 @@
   delay: 2
   until: identity_pocketid_sync_check.rc == 0
   changed_when: false
+  # Ждем синка только если мы только что бутстрапили LLDAP
+  when: not identity_oidc_file.stat.exists
   tags: [deploy, identity, bootstrap]
 
 # 6. Магия авто-настройки OIDC (PocketID -> TinyAuth)
@@ -118,7 +144,7 @@
       TOKEN=$(echo "$LINK_OUTPUT" | grep -o 'https://[^ ]*' | awk -F/ '{print $NF}' | tr -d '\r')
       if [ -z "$TOKEN" ]; then echo "FAIL: No Token"; exit 1; fi
 
-      # 2. Логин -> Cookie (FIX: localhost:1411)
+      # 2. Логин -> Cookie (Localhost:1411)
       for i in {1..5}; do
         curl -s -c /tmp/pocket_cookie.txt -X POST "http://127.0.0.1:1411/api/one-time-access-token/$TOKEN" > /dev/null
         if grep -q "__Host-access_token" /tmp/pocket_cookie.txt; then break; fi
@@ -130,7 +156,7 @@
          exit 0
       fi
 
-      # 3. API Key (FIX: localhost:1411)
+      # 3. API Key (Localhost:1411)
       EXPIRE_DATE="2035-01-01T00:00:00Z"
       API_KEY_RESP=$(curl -s -b /tmp/pocket_cookie.txt \
         -X POST "http://127.0.0.1:1411/api/api-keys" \
@@ -138,7 +164,7 @@
         -d "{\"name\":\"Ansible Auto Key\",\"description\":\"Automated\",\"expiresAt\":\"$EXPIRE_DATE\"}")
       API_TOKEN=$(echo "$API_KEY_RESP" | jq -r '.token // empty')
 
-      # 4. OIDC Client (FIX: localhost:1411)
+      # 4. OIDC Client (Localhost:1411)
       OIDC_RESP=$(curl -s -b /tmp/pocket_cookie.txt \
         -X POST "http://127.0.0.1:1411/api/oidc/clients" \
         -H "Content-Type: application/json" \
@@ -151,12 +177,15 @@
         }')
       CLIENT_ID=$(echo "$OIDC_RESP" | jq -r '.id // empty')
 
+      # ПРОВЕРКА: Если клиент уже есть (имя занято), API может вернуть ошибку или существующий ID.
+      # Но так как мы здесь только `when: not file.exists`, считаем, что клиента нет.
+
       if [ -z "$CLIENT_ID" ]; then
          echo "INFO: Failed to create client."
          exit 0
       fi
 
-      # 5. ПРИНУДИТЕЛЬНАЯ ГЕНЕРАЦИЯ СЕКРЕТА (FIX: localhost:1411)
+      # 5. ПРИНУДИТЕЛЬНАЯ ГЕНЕРАЦИЯ СЕКРЕТА
       CLIENT_SECRET=$(echo "$OIDC_RESP" | jq -r '.credentials.secret // .clientSecret // empty')
 
       if [ -z "$CLIENT_SECRET" ]; then
@@ -170,38 +199,37 @@
         echo "ID:$CLIENT_ID"
         echo "SECRET:$CLIENT_SECRET"
         if [ -n "$API_TOKEN" ]; then echo "TOKEN:$API_TOKEN"; fi
-      else
-        echo "INFO: Client created but SECRET is still missing. Weird."
       fi
     executable: /bin/bash
   register: identity_auto_oidc_setup
   failed_when: false
   changed_when: "'SECRET:' in identity_auto_oidc_setup.stdout"
+  when: not identity_oidc_file.stat.exists
   tags: [deploy, identity, bootstrap, magic]
 
-- name: Set Dynamic OIDC Facts
-  ansible.builtin.set_fact:
-    identity_tinyauth_dynamic_id: "{{ identity_auto_oidc_setup.stdout | regex_search('ID:([a-zA-Z0-9-]+)', '\\1') | first }}"
-    identity_tinyauth_dynamic_secret: "{{ identity_auto_oidc_setup.stdout | regex_search('SECRET:([a-zA-Z0-9-]+)', '\\1') | first }}"
-    identity_pocketid_auto_api_key: "{{ identity_auto_oidc_setup.stdout | regex_search('TOKEN:([a-zA-Z0-9_]+)', '\\1') | first | default('NotCreated') }}"
+# 7. Сохраняем секреты TinyAuth в файл (Idempotency)
+- name: Save TinyAuth secrets to file
+  ansible.builtin.copy:
+    content: |
+      CLIENT_ID={{ identity_auto_oidc_setup.stdout | regex_search('ID:([a-zA-Z0-9-]+)', '\1') | first }}
+      CLIENT_SECRET={{ identity_auto_oidc_setup.stdout | regex_search('SECRET:([a-zA-Z0-9-]+)', '\1') | first }}
+    dest: "{{ identity_compose_dir }}/.tinyauth_oidc_secrets"
+    mode: "0600"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
   when:
-    - identity_auto_oidc_setup.rc == 0
-    - "'SECRET:' in identity_auto_oidc_setup.stdout"
+    - not identity_oidc_file.stat.exists
+    - identity_auto_oidc_setup.changed
   tags: [deploy, identity, bootstrap, magic]
 
-- name: Show Generated Secrets (SAVE TO VAULT!)
-  ansible.builtin.debug:
-    msg:
-      - "🎉 ULTRA-AUTOMATION SUCCESS!"
-      - "TinyAuth Client ID: {{ identity_tinyauth_dynamic_id }}"
-      - "TinyAuth Secret: {{ identity_tinyauth_dynamic_secret }}"
-      - "PocketID API Key: {{ identity_pocketid_auto_api_key }}"
-      - "⚠️  TinyAuth is being re-deployed with these credentials NOW."
-      - "⚠️  PLEASE COPY THESE TO vault.yml FOR FUTURE RUNS!"
-  when: identity_tinyauth_dynamic_secret is defined
-  tags: [deploy, identity, bootstrap, magic]
+# 8. Финальный рендеринг и перезапуск (если секреты были только что созданы)
+- name: Set New Secrets Fact
+  ansible.builtin.set_fact:
+    identity_new_tinyauth_id: "{{ identity_auto_oidc_setup.stdout | regex_search('ID:([a-zA-Z0-9-]+)', '\\1') | first }}"
+    identity_new_tinyauth_secret: "{{ identity_auto_oidc_setup.stdout | regex_search('SECRET:([a-zA-Z0-9-]+)', '\\1') | first }}"
+  when: identity_auto_oidc_setup.changed
+  tags: [deploy, identity, bootstrap, magic] # noqa: no-handler
 
-# 7. Обновление TinyAuth (если секреты поменялись)
 - name: Re-render docker-compose.yml with new secrets
   ansible.builtin.template:
     src: docker-compose.yml.j2
@@ -209,10 +237,13 @@
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
-  when: identity_tinyauth_dynamic_secret is defined
-  tags: [deploy, identity, bootstrap, magic]
+  vars:
+    identity_tinyauth_dynamic_id: "{{ identity_new_tinyauth_id }}"
+    identity_tinyauth_dynamic_secret: "{{ identity_new_tinyauth_secret }}"
+  when: identity_auto_oidc_setup.changed
+  tags: [deploy, identity, bootstrap, magic] # noqa: no-handler
 
-- name: Re-deploy TinyAuth with new credentials (force recreate)
+- name: Re-deploy TinyAuth with new credentials
   community.docker.docker_compose_v2:
     project_src: "{{ identity_compose_dir }}"
     services:
@@ -221,11 +252,11 @@
     recreate: always
   become: true
   become_user: "{{ deploy_user }}"
-  when: identity_tinyauth_dynamic_secret is defined
-  tags: [deploy, identity, bootstrap, magic]
+  when: identity_auto_oidc_setup.changed
+  tags: [deploy, identity, bootstrap, magic] # noqa: no-handler
 
-# 8. Генерация ссылки для админа
-- name: Generate Fresh One-Time Login Link for Admin
+# 9. Генерация ссылки для админа (всегда полезно видеть)
+- name: Generate One-Time Login Link (Info)
   ansible.builtin.command:
     cmd: docker exec pocketid /app/pocket-id one-time-access-token {{ identity_lldap_admin_dn }}
   register: identity_login_link

@@ -4,19 +4,15 @@ services:
     image: nginx:alpine
     container_name: {{ hugo_service_name }}
     restart: unless-stopped
-    
-    # === [ NEW: Healthcheck added here ] ===
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1"]
       interval: 60s
       timeout: 5s
       retries: 3
-
     networks:
       - {{ hugo_network_name }}
     volumes:
       - "{{ hugo_public_dir }}:/usr/share/nginx/html:ro"
-
     labels:
 {% if hugo_ingress_provider == 'caddy' %}
       caddy: "{{ hugo_domain }}"
@@ -24,8 +20,8 @@ services:
       caddy.encode: "gzip"
       caddy.import: "secure-headers"
       caddy.header.Cache-Control: "public, max-age=3600"
-
-      # Matrix Delegation (Без изменений, это специфичная логика)
+      
+      # Matrix Delegation
       caddy.handle_path_0: "/.well-known/matrix/server"
       caddy.handle_path_0.respond: '{"m.server":"matrix.{{ hugo_domain }}:443"}'
       caddy.handle_path_0.header: "Content-Type application/json"
@@ -36,7 +32,6 @@ services:
       caddy.handle_path_1.header: "Content-Type application/json"
       caddy.handle_path_1.header_0: "Access-Control-Allow-Origin *"
 {% endif %}
-
 {% if hugo_enable_autoheal | bool %}
       autoheal: "true"
 {% endif %}
@@ -51,8 +46,12 @@ services:
     volumes:
       - "{{ hugo_site_dir }}:/src"
       - "{{ hugo_public_dir }}:/dest"
+      # --- ВАЖНО: Монтируем внешние конфиги ---
+      - "{{ hugo_base_dir }}/hugo.toml:/src/hugo_ansible.toml:ro"
+      - "{{ hugo_base_dir }}/comments.html:/src/layouts/partials/comments.html:ro"
     command: >
       hugo
+      --config /src/hugo_ansible.toml
       --destination /dest
       --cleanDestinationDir
       --minify
@@ -60,7 +59,7 @@ services:
     networks:
       - {{ hugo_network_name }}
     labels:
-      caddy: "" # Disable ingress for builder
+      caddy: ""
 
 networks:
   {{ hugo_network_name }}:

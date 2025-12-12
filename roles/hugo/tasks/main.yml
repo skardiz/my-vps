@@ -18,74 +18,41 @@
     - "{{ hugo_base_dir }}"
     - "{{ hugo_site_dir }}"
     - "{{ hugo_public_dir }}"
+  become: true
 
-- name: Fix permissions for Site Directory (Pre-Clone)
-  ansible.builtin.file:
-    path: "{{ hugo_site_dir }}"
-    state: directory
-    owner: "{{ deploy_user }}"
-    group: "{{ deploy_user }}"
-    mode: '0755'
-    recurse: true
-
+# 1. GIT: Теперь Force=no работает корректно, т.к. мы не трогаем файлы внутри
 - name: Clone Hugo Repository
   ansible.builtin.git:
     repo: "{{ hugo_repo }}"
     dest: "{{ hugo_site_dir }}"
     version: "{{ hugo_repo_version }}"
-    force: true
-    update: true
-    recursive: true
-  become: true
-  become_user: "{{ deploy_user }}"
-
-- name: Ensure theme submodules are updated (Safety net)
-  ansible.builtin.git:
-    repo: "{{ hugo_repo }}"
-    dest: "{{ hugo_site_dir }}"
-    version: "{{ hugo_repo_version }}"
-    recursive: true
-    update: true
     force: false
+    update: true
+    recursive: true
   become: true
   become_user: "{{ deploy_user }}"
-  register: hugo_git_submodules
-  failed_when: false
-  changed_when: hugo_git_submodules.changed
+  register: hugo_git_pull
 
-- name: Remove default hugo.yaml/toml from repo
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - "{{ hugo_site_dir }}/hugo.yaml"
-    - "{{ hugo_site_dir }}/hugo.toml"
+# 2. Рендерим файлы ВНЕ репозитория (в hugo_base_dir)
+# Это сохраняет репозиторий "чистым" для Git
 
-# --- НОВЫЙ БЛОК ДЛЯ КОММЕНТАРИЕВ ---
-- name: Ensure layouts/partials directory exists
-  ansible.builtin.file:
-    path: "{{ hugo_site_dir }}/layouts/partials"
-    state: directory
-    mode: '0755'
-    owner: "{{ deploy_user }}"
-    group: "{{ deploy_user }}"
-
-- name: Render comments.html partial (Giscus code)
+- name: Render comments.html partial
   ansible.builtin.template:
     src: comments.html.j2
-    dest: "{{ hugo_site_dir }}/layouts/partials/comments.html"
+    dest: "{{ hugo_base_dir }}/comments.html"
     mode: "0644"
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
-# -------------------------------------
+  register: hugo_comments_render
 
-- name: Render Hugo Config (hugo.toml)
+- name: Render Hugo Config
   ansible.builtin.template:
     src: hugo.toml.j2
-    dest: "{{ hugo_site_dir }}/hugo.toml"
+    dest: "{{ hugo_base_dir }}/hugo.toml"
     mode: "0644"
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
+  register: hugo_config_render
 
 - name: Render docker-compose.yml
   ansible.builtin.template:
@@ -94,38 +61,48 @@
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
+  register: hugo_compose_render
 
-- name: Deploy Hugo Stack
-  block:
-    - name: Start Hugo (Builder + Nginx)
-      community.docker.docker_compose_v2:
-        project_src: "{{ hugo_base_dir }}"
-        state: present
-        pull: always
-        remove_orphans: true
-        recreate: always
-      become: true
-      become_user: "{{ deploy_user }}"
+# 3. Deploy
 
-  rescue:
-    - name: Check if builder exited successfully
-      ansible.builtin.debug:
-        msg: "Builder container exited. This is normal for Hugo if ExitCode is 0."
+- name: Deploy Hugo Stack (Nginx Only)
+  community.docker.docker_compose_v2:
+    project_src: "{{ hugo_base_dir }}"
+    state: present
+    services: ["{{ hugo_service_name }}"]
+    pull: missing
+    remove_orphans: true
+    recreate: auto
+  become: true
+  become_user: "{{ deploy_user }}"
 
-    - name: Fix permissions AFTER build (For Nginx)
-      ansible.builtin.file:
-        path: "{{ hugo_public_dir }}"
-        state: directory
-        mode: '0755'
-        recurse: true
-      become: true
+- name: Run Hugo Builder (On Changes)
+  community.docker.docker_compose_v2:
+    project_src: "{{ hugo_base_dir }}"
+    services: ["{{ hugo_builder_container }}"]
+    state: present
+    recreate: always
+  become: true
+  become_user: "{{ deploy_user }}"
+  when: >
+    hugo_git_pull.changed or
+    hugo_config_render.changed or
+    hugo_comments_render.changed or
+    hugo_compose_render.changed
+  register: hugo_build_run
 
-    - name: Verify Nginx is running
-      ansible.builtin.command: "docker ps -f name={{ hugo_service_name }} -f status=running --format '{{ '{{' }}.Status{{ '}}' }}'"
-      register: hugo_nginx_status
-      changed_when: false
-      failed_when: hugo_nginx_status.stdout == ""
+- name: Fix permissions AFTER build
+  ansible.builtin.file:
+    path: "{{ hugo_public_dir }}"
+    state: directory
+    mode: '0755'
+    recurse: true
+  become: true
+  when: hugo_build_run.changed
+  tags: [hugo] # noqa: no-handler
 
-    - name: Success message
-      ansible.builtin.debug:
-        msg: "Hugo site deployed successfully via Nginx!"
+- name: Verify Nginx is running
+  ansible.builtin.command: "docker ps -f name={{ hugo_service_name }} -f status=running --format '{{ '{{' }}.Status{{ '}}' }}'"
+  register: hugo_nginx_status
+  changed_when: false
+  failed_when: hugo_nginx_status.stdout == ""
