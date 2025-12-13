@@ -69,7 +69,7 @@ homer_services:
       - name: "Dozzle"
         icon: "fas fa-box-open"
         subtitle: "Container Logs"
-        url: "https://dozzle.{{ base_domain }}"
+        url: "https://logs.{{ base_domain }}"
         target: "_blank"
 
   - name: "Identity & Security"
@@ -78,7 +78,7 @@ homer_services:
       - name: "PocketID"
         icon: "fas fa-id-card"
         subtitle: "OIDC Provider"
-        url: "https://auth.{{ base_domain }}"
+        url: "https://id.{{ base_domain }}"
         target: "_blank"
 
       - name: "LLDAP"
@@ -105,7 +105,7 @@ homer_services:
       - name: "Syncthing"
         icon: "fas fa-sync"
         subtitle: "File Sync"
-        url: "https://syncthing.{{ base_domain }}"
+        url: "https://sync.{{ base_domain }}"
         target: "_blank"
 
 # [ Healthcheck ]

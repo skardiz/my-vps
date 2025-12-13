@@ -12,7 +12,7 @@ syncthing_data_dir: "{{ syncthing_compose_dir }}/data"
 
 # [ Network & Ingress ]
 syncthing_docker_network: "{{ docker_network_name }}"
-syncthing_domain: "syncthing.{{ base_domain }}"
+syncthing_domain: "sync.{{ base_domain }}"
 syncthing_ingress_provider: "caddy"
 syncthing_web_port: "8384"
 syncthing_tcp_port: "22000"

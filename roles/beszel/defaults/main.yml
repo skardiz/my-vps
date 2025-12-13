@@ -22,7 +22,7 @@ beszel_port: 8090
 beszel_ingress_provider: "caddy"
 
 # [ External Dependencies ]
-beszel_identity_domain: "auth.{{ base_domain }}"
+beszel_identity_domain: "id.{{ base_domain }}"
 beszel_lldap_admin_dn: "admin"
 
 # [ Configuration ]

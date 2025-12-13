@@ -14,7 +14,7 @@ dozzle_docker_network: "{{ docker_network_name }}"
 dozzle_port: 8080
 
 # [ Domain & Ingress ]
-dozzle_domain: "{{ dozzle_service_name }}.{{ base_domain }}"
+dozzle_domain: "logs.{{ base_domain }}"
 dozzle_ingress_provider: "caddy"
 
 # [ Configuration ]

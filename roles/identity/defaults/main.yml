@@ -37,7 +37,7 @@ identity_lldap_jwt_secret: "{{ vault_identity.lldap.jwt_secret }}"
 # [ PocketID Configuration ]
 identity_pocketid_image: "ghcr.io/pocket-id/pocket-id"
 identity_pocketid_version: "{{ docker_image_tag | default('latest') }}"
-identity_pocketid_domain: "auth.{{ base_domain }}"
+identity_pocketid_domain: "id.{{ base_domain }}"
 identity_pocketid_port: "1411"
 identity_pocketid_trust_proxy: "true"
 identity_pocketid_maxmind_license_key: ""
@@ -61,7 +61,7 @@ identity_pocketid_ldap_attr_group_name: "cn"
 # [ TinyAuth Configuration ]
 identity_tinyauth_image: "ghcr.io/steveiliop56/tinyauth"
 identity_tinyauth_version: "{{ docker_image_tag | default('latest') }}"
-identity_tinyauth_domain: "tinyauth.{{ base_domain }}"
+identity_tinyauth_domain: "auth.{{ base_domain }}"
 identity_tinyauth_port: "3000"
 identity_tinyauth_auto_redirect: true
 identity_tinyauth_memory_limit: "{{ docker_memory_limit | default('128M') }}"
