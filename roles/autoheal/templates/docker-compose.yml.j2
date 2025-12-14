@@ -1,50 +1,52 @@
 services:
-  {{ autoheal_service_name }}:
-    image: "{{ autoheal_image }}:{{ autoheal_image_tag }}"
-    container_name: "{{ autoheal_container_name }}"
-    restart: "{{ autoheal_restart_policy }}"
+  {{ autoheal.service }}:
+    image: "{{ autoheal.image }}"
+    container_name: "{{ autoheal.service }}"
+    restart: "unless-stopped"
 
     deploy:
       resources:
         limits:
-          memory: {{ autoheal_memory_limit }}
+          memory: {{ autoheal.memory }}
 
     environment:
-      AUTOHEAL_CONTAINER_LABEL: "{{ autoheal_container_label }}"
-      AUTOHEAL_INTERVAL: "{{ autoheal_interval }}"
-      AUTOHEAL_START_PERIOD: "{{ autoheal_start_period }}"
-      AUTOHEAL_DEFAULT_STOP_TIMEOUT: "{{ autoheal_stop_timeout }}"
-      AUTOHEAL_ONLY_MONITOR_RUNNING: "{{ autoheal_only_monitor_running }}"
-      TZ: "{{ autoheal_timezone }}"
-      # Если используется прокси, указываем адрес
-{% if autoheal_use_socket_proxy %}
-      DOCKER_SOCK: "{{ autoheal_docker_host }}"
+      AUTOHEAL_CONTAINER_LABEL: "{{ autoheal.config.label }}"
+      AUTOHEAL_INTERVAL: "{{ autoheal.config.interval }}"
+      AUTOHEAL_START_PERIOD: "{{ autoheal.config.start_period }}"
+      AUTOHEAL_DEFAULT_STOP_TIMEOUT: "{{ autoheal.config.stop_timeout }}"
+      AUTOHEAL_ONLY_MONITOR_RUNNING: "{{ autoheal.config.only_monitor_running }}"
+      TZ: "{{ system.timezone | default('UTC') }}" # Берем из глобальной system
+{% if autoheal.socket_proxy | bool %}
+      DOCKER_SOCK: "tcp://socket-proxy:2375"
 {% endif %}
 
     volumes:
-{% if not autoheal_use_socket_proxy %}
-      # Если прокси нет, маунтим сокет напрямую
+{% if not autoheal.socket_proxy | bool %}
+      # Direct Socket Mount
       - /var/run/docker.sock:/var/run/docker.sock
 {% endif %}
       - /etc/localtime:/etc/localtime:ro
 
     networks:
-      - {{ autoheal_docker_network }} # web
-{% if autoheal_use_socket_proxy %}
-      - socket_proxy                  # <--- ВАЖНО: Доступ к сети прокси
+      # Ему не обязательно быть в сети web, если он не общается с другими контейнерами по сети,
+      # но для порядка можно оставить. 
+      # Главное - доступ к API.
+      - {{ docker.network }}
+{% if autoheal.socket_proxy | bool %}
+      - socket_proxy
 {% endif %}
 
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f autoheal || exit 1"]
-      interval: {{ autoheal_hc_interval }}
-      timeout: {{ autoheal_hc_timeout }}
-      retries: {{ autoheal_hc_retries }}
-      start_period: {{ autoheal_hc_start_period }}
+      interval: {{ autoheal.healthcheck.interval }}
+      timeout: {{ autoheal.healthcheck.timeout }}
+      retries: {{ autoheal.healthcheck.retries }}
+      start_period: {{ autoheal.healthcheck.start_period }}
 
 networks:
-  {{ autoheal_docker_network }}:
+  {{ docker.network }}:
     external: true
-{% if autoheal_use_socket_proxy %}
-  socket_proxy:                       # <--- Объявляем сеть
+{% if autoheal.socket_proxy | bool %}
+  socket_proxy:
     external: true
 {% endif %}

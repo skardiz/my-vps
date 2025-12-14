@@ -1,0 +1,7 @@
+---
+- name: Restart Watchtower
+  community.docker.docker_compose_v2:
+    project_src: "{{ watchtower.path }}"
+    state: restarted
+  become: true
+  become_user: "{{ deploy_user }}"

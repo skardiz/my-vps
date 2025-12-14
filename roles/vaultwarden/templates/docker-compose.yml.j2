@@ -1,53 +1,49 @@
 services:
-  {{ vaultwarden_service_name }}:
-    image: "{{ vaultwarden_image }}:{{ vaultwarden_image_tag }}"
-    container_name: "{{ vaultwarden_container_name }}"
-    restart: "{{ vaultwarden_restart_policy }}"
+  {{ vaultwarden.service }}:
+    image: "{{ vaultwarden.image }}"
+    container_name: "{{ vaultwarden.service }}"
+    restart: "unless-stopped"
 
     deploy:
       resources:
         limits:
-          memory: {{ vaultwarden_memory_limit }}
+          memory: {{ vaultwarden.memory }}
 
     volumes:
       - ./data:/data
 
     networks:
-      - {{ vaultwarden_docker_network }}
+      - {{ docker.network }}
 
     environment:
-      - DOMAIN=https://{{ vaultwarden_domain }}
-      - SIGNUPS_ALLOWED={{ vaultwarden_signups_allowed | lower }}
-      - INVITATIONS_ALLOWED={{ vaultwarden_invitations_allowed | lower }}
-      - SHOW_PASSWORD_HINT={{ vaultwarden_show_password_hint | lower }}
-      - WEBSOCKET_ENABLED={{ vaultwarden_websocket_enabled | lower }}
-      - LOG_LEVEL={{ vaultwarden_log_level }}
-      - ADMIN_TOKEN={{ vaultwarden_admin_token }}
-      - TZ={{ vaultwarden_timezone }}
+      - DOMAIN=https://{{ vaultwarden.domain }}
+      - SIGNUPS_ALLOWED={{ vaultwarden.config.signups_allowed | lower }}
+      - INVITATIONS_ALLOWED={{ vaultwarden.config.invitations_allowed | lower }}
+      - SHOW_PASSWORD_HINT={{ vaultwarden.config.show_password_hint | lower }}
+      - WEBSOCKET_ENABLED={{ vaultwarden.config.websocket_enabled | lower }}
+      - LOG_LEVEL={{ vaultwarden.config.log_level }}
+      - ADMIN_TOKEN={{ vaultwarden.admin_token }}
+      - TZ={{ system.timezone | default('UTC') }}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/alive"]
-      interval: {{ vaultwarden_hc_interval }}
-      timeout: {{ vaultwarden_hc_timeout }}
-      retries: {{ vaultwarden_hc_retries }}
-      start_period: {{ vaultwarden_hc_start_period }}
+      interval: {{ vaultwarden.healthcheck.interval }}
+      timeout: {{ vaultwarden.healthcheck.timeout }}
+      retries: {{ vaultwarden.healthcheck.retries }}
+      start_period: {{ vaultwarden.healthcheck.start_period }}
 
     labels:
       # === INGRESS: CADDY ===
-{% if vaultwarden_ingress_provider == 'caddy' %}
-      caddy: "{{ vaultwarden_domain }}"
+      caddy: "{{ vaultwarden.domain }}"
       caddy.import: "secure-headers"
-      # Нет внешней Auth, используем прямой прокси
-      caddy.reverse_proxy: "{{ vaultwarden_service_name }}:{{ vaultwarden_port_http }}"
-      # WebSocket support usually works out of the box with Caddy v2, but sometimes needs explicit config
-      # For Vaultwarden, usually default proxy is enough.
-{% endif %}
+      # Прямой прокси, так как у Vaultwarden своя встроенная аутентификация
+      caddy.reverse_proxy: "{{ vaultwarden.service }}:{{ vaultwarden.port }}"
 
       # === AUTOHEAL ===
-{% if vaultwarden_enable_autoheal | bool %}
+{% if vaultwarden.autoheal | bool %}
       autoheal: "true"
 {% endif %}
 
 networks:
-  {{ vaultwarden_docker_network }}:
+  {{ docker.network }}:
     external: true

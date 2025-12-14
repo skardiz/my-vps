@@ -1,7 +1,7 @@
 ---
 - name: Ensure Watchtower directory exists
   ansible.builtin.file:
-    path: "{{ watchtower_compose_dir }}"
+    path: "{{ watchtower.path }}"
     state: directory
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
@@ -11,15 +11,16 @@
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ watchtower_compose_dir }}/docker-compose.yml"
+    dest: "{{ watchtower.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
+  notify: Restart Watchtower
   tags: [watchtower, config]
 
 - name: Deploy Watchtower
   community.docker.docker_compose_v2:
-    project_src: "{{ watchtower_compose_dir }}"
+    project_src: "{{ watchtower.path }}"
     state: present
     pull: always
     remove_orphans: true

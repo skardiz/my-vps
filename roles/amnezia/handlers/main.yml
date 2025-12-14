@@ -1,0 +1,7 @@
+---
+- name: Restart Amnezia
+  community.docker.docker_compose_v2:
+    project_src: "{{ amnezia.path }}"
+    state: restarted
+  become: true
+  become_user: "{{ deploy_user }}"

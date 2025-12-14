@@ -1,8 +1,8 @@
 services:
-  {{ watchtower_service_name }}:
-    image: {{ watchtower_image }}:{{ watchtower_image_tag }}
-    container_name: {{ watchtower_container_name }}
-    restart: unless-stopped
+  {{ watchtower.service }}:
+    image: "{{ watchtower.image }}"
+    container_name: "{{ watchtower.service }}"
+    restart: "unless-stopped"
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -12,36 +12,33 @@ services:
 
     environment:
       # --- Scheduling ---
-      - WATCHTOWER_SCHEDULE={{ watchtower_schedule }}
+      - WATCHTOWER_SCHEDULE={{ watchtower.config.schedule }}
 
       # --- Behavior ---
-      - WATCHTOWER_CLEANUP={{ watchtower_cleanup | lower }}
-      - WATCHTOWER_INCLUDE_STOPPED={{ watchtower_include_stopped | lower }}
-      - WATCHTOWER_REVIVE_STOPPED={{ watchtower_revive_stopped | lower }}
-      - WATCHTOWER_MONITOR_ONLY={{ watchtower_monitor_only | lower }}
-      
+      - WATCHTOWER_CLEANUP={{ watchtower.config.cleanup | lower }}
+      - WATCHTOWER_INCLUDE_STOPPED={{ watchtower.config.include_stopped | lower }}
+      - WATCHTOWER_REVIVE_STOPPED={{ watchtower.config.revive_stopped | lower }}
+      - WATCHTOWER_MONITOR_ONLY={{ watchtower.config.monitor_only | lower }}
+
       # --- Safety ---
-      # Ждать healthcheck
-      - WATCHTOWER_ROLLING_RESTART={{ watchtower_rolling_restart | lower }}
-      # Таймаут остановки (важно для БД)
-      - WATCHTOWER_TIMEOUT={{ watchtower_timeout }}
+      - WATCHTOWER_ROLLING_RESTART={{ watchtower.config.rolling_restart | lower }}
+      - WATCHTOWER_TIMEOUT={{ watchtower.config.timeout }}
 
       # --- Notifications ---
-{% if watchtower_notifications_enabled | default(true) | bool and watchtower_notification_url | default('') | length > 0 %}
+{% if watchtower.notification_url | length > 0 %}
       - WATCHTOWER_NOTIFICATIONS=shoutrrr
-      - WATCHTOWER_NOTIFICATION_URL={{ watchtower_notification_url }}
-      - WATCHTOWER_NO_STARTUP_MESSAGE={{ watchtower_no_startup_message | lower }}
+      - WATCHTOWER_NOTIFICATION_URL={{ watchtower.notification_url }}
+      - WATCHTOWER_NO_STARTUP_MESSAGE={{ watchtower.config.no_startup_message | lower }}
 {% endif %}
 
     deploy:
       resources:
         limits:
-          memory: {{ watchtower_memory_limit }}
-          cpus: '{{ watchtower_cpus }}'
+          memory: {{ watchtower.memory }}
 
     networks:
-      - {{ watchtower_docker_network }}
+      - {{ docker.network }}
 
 networks:
-  {{ watchtower_docker_network }}:
+  {{ docker.network }}:
     external: true

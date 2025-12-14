@@ -1,43 +1,40 @@
 ---
-# [ Service Identity ]
-amnezia_service_name: "amnezia"
-amnezia_container_name: "{{ amnezia_service_name }}"
-amnezia_image: "alexishw/amneziawg-web-ui"
-amnezia_image_tag: "latest"
+amnezia:
+  service: "amnezia"
 
-# [ Paths & Directories ]
-amnezia_compose_dir: "{{ docker_base_dir }}/{{ amnezia_service_name }}"
-amnezia_config_dir: "{{ amnezia_compose_dir }}/config"
-amnezia_data_dir: "{{ amnezia_compose_dir }}/data"
+  # Image + Tag
+  image: "alexishw/amneziawg-web-ui:latest"
 
-# [ Network & Ingress ]
-amnezia_docker_network: "{{ docker_network_name }}"
-amnezia_domain: "amnezia.{{ base_domain }}"
-amnezia_ingress_provider: "caddy"
-amnezia_port_http: 80
-amnezia_port_vpn: 51820
+  # Domain (Dynamic)
+  domain: "amnezia.{{ domain.base }}"
 
-# [ Configuration ]
-amnezia_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
-amnezia_auto_start_servers: "true"
-amnezia_default_mtu: "1280"
-amnezia_default_subnet: "10.0.0.0/24"
-amnezia_default_dns: "8.8.8.8,1.1.1.1"
+  # Ports
+  ports:
+    http: 80
+    vpn: 51820
 
-# [ Resources ]
-amnezia_memory_limit: "{{ docker_memory_limit | default('256M') }}"
+  # Paths
+  path: "{{ docker.base_dir }}/amnezia"
 
-# [ Authentication ]
-amnezia_auth_enabled: true
-amnezia_auth_header_user: "Remote-User"
+  # App Configuration
+  config:
+    auto_start: "true"
+    mtu: "1280"
+    subnet: "10.0.0.0/24"
+    dns: "8.8.8.8,1.1.1.1"
 
-# [ Integrations ]
-amnezia_enable_autoheal: "{{ use_autoheal | default(true) }}"
-# Sablier: выключен by design для VPN
-amnezia_use_sablier: false
+  # Auth Switch (Settings are hardcoded in Caddy)
+  auth_enabled: true
 
-# [ Healthcheck Strategy ]
-amnezia_hc_interval: "30s"
-amnezia_hc_timeout: "5s"
-amnezia_hc_retries: 3
-amnezia_hc_start_period: "15s"
+  # Resources (Inherit global default)
+  memory: "{{ docker.defaults.memory }}"
+
+  # Integrations
+  autoheal: true
+
+  # Healthcheck (Tuned for Go app)
+  healthcheck:
+    interval: "30s"
+    timeout: "5s"
+    retries: 3
+    start_period: "5s"

@@ -1,44 +1,38 @@
 ---
-# [ Service Identity ]
-vaultwarden_service_name: "vaultwarden"
-vaultwarden_container_name: "{{ vaultwarden_service_name }}"
-vaultwarden_image: "vaultwarden/server"
-vaultwarden_image_tag: "{{ docker_image_tag | default('latest') }}"
+vaultwarden:
+  service: "vaultwarden"
 
-# [ Paths & Directories ]
-vaultwarden_compose_dir: "{{ docker_base_dir }}/{{ vaultwarden_service_name }}"
-vaultwarden_data_dir: "{{ vaultwarden_compose_dir }}/data"
+  # Image + Tag
+  image: "vaultwarden/server:latest"
 
-# [ Network & Ingress ]
-vaultwarden_docker_network: "{{ docker_network_name }}"
-vaultwarden_domain: "vault.{{ base_domain }}"
-vaultwarden_ingress_provider: "caddy"
-vaultwarden_port_http: 80
-vaultwarden_port_ws: 3012
+  path: "{{ docker.base_dir }}/vaultwarden"
 
-# [ Configuration ]
-vaultwarden_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
-vaultwarden_timezone: "{{ docker_timezone | default('Europe/Moscow') }}"
-vaultwarden_signups_allowed: true # Или false для production
-vaultwarden_invitations_allowed: true
-vaultwarden_show_password_hint: false
-vaultwarden_websocket_enabled: true
+  # Domain (Dynamic)
+  domain: "vault.{{ domain.base }}"
 
-# [ Secrets ]
-vaultwarden_admin_token: "{{ vault_vaultwarden.admin_token | default('') }}"
+  # Ports (Internal)
+  port: 80
 
-# [ Resources ]
-vaultwarden_memory_limit: "{{ docker_memory_limit | default('256M') }}"
+  # App Configuration
+  config:
+    signups_allowed: false       # Safer default for production
+    invitations_allowed: true
+    show_password_hint: false
+    websocket_enabled: true
+    log_level: "info"
 
-# [ Logging ]
-vaultwarden_log_level: "info"
+  # Secrets (From Vault)
+  admin_token: "{{ vault_vaultwarden.admin_token | default('') }}"
 
-# [ Integrations ]
-vaultwarden_enable_autoheal: "{{ use_autoheal | default(true) }}"
-vaultwarden_use_sablier: false
+  # Resources (Inherit global default)
+  memory: "{{ docker.defaults.memory }}"
 
-# [ Healthcheck Strategy ]
-vaultwarden_hc_interval: "30s"
-vaultwarden_hc_timeout: "10s"
-vaultwarden_hc_retries: 3
-vaultwarden_hc_start_period: "20s"
+  # Integrations
+  autoheal: true
+
+  # Healthcheck
+  healthcheck:
+    interval: "30s"
+    timeout: "10s"
+    retries: 3
+    start_period: "20s"

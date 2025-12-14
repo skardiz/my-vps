@@ -1,30 +1,30 @@
 services:
-  {{ amnezia_service_name }}:
-    image: "{{ amnezia_image }}:{{ amnezia_image_tag }}"
-    container_name: "{{ amnezia_container_name }}"
-    restart: "{{ amnezia_restart_policy }}"
+  {{ amnezia.service }}:
+    image: "{{ amnezia.image }}"
+    container_name: "{{ amnezia.service }}"
+    restart: "unless-stopped"
 
     deploy:
       resources:
         limits:
-          memory: {{ amnezia_memory_limit }}
+          memory: {{ amnezia.memory }}
 
     environment:
-      NGINX_PORT: "{{ amnezia_port_http }}"
-      AUTO_START_SERVERS: "{{ amnezia_auto_start_servers }}"
-      DEFAULT_MTU: "{{ amnezia_default_mtu }}"
-      DEFAULT_SUBNET: "{{ amnezia_default_subnet }}"
-      DEFAULT_PORT: "{{ amnezia_port_vpn }}"
-      DEFAULT_DNS: "{{ amnezia_default_dns }}"
+      NGINX_PORT: "{{ amnezia.ports.http }}"
+      AUTO_START_SERVERS: "{{ amnezia.config.auto_start }}"
+      DEFAULT_MTU: "{{ amnezia.config.mtu }}"
+      DEFAULT_SUBNET: "{{ amnezia.config.subnet }}"
+      DEFAULT_PORT: "{{ amnezia.ports.vpn }}"
+      DEFAULT_DNS: "{{ amnezia.config.dns }}"
 
     volumes:
-      - "{{ amnezia_data_dir }}:/etc/amnezia"
-      - "{{ amnezia_config_dir }}/nginx_default.conf:/etc/nginx/http.d/default.conf"
+      - "{{ amnezia.path }}/data:/etc/amnezia"
+      - "{{ amnezia.path }}/config/nginx_default.conf:/etc/nginx/http.d/default.conf"
 
     ports:
-      - "{{ amnezia_port_vpn }}:{{ amnezia_port_vpn }}/udp"
+      - "{{ amnezia.ports.vpn }}:{{ amnezia.ports.vpn }}/udp"
 
-    # VPN Requirements
+    # VPN Requirements (Mandatory)
     cap_add: [NET_ADMIN, SYS_MODULE]
     devices: [/dev/net/tun:/dev/net/tun]
     sysctls:
@@ -35,38 +35,36 @@ services:
       - net.ipv6.conf.default.forwarding=1
 
     networks:
-      - {{ amnezia_docker_network }}
+      - {{ docker.network }}
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:{{ amnezia_port_http }}/ || exit 1"]
-      interval: {{ amnezia_hc_interval }}
-      timeout: {{ amnezia_hc_timeout }}
-      retries: {{ amnezia_hc_retries }}
-      start_period: {{ amnezia_hc_start_period }}
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:{{ amnezia.ports.http }}/ || exit 1"]
+      interval: {{ amnezia.healthcheck.interval }}
+      timeout: {{ amnezia.healthcheck.timeout }}
+      retries: {{ amnezia.healthcheck.retries }}
+      start_period: {{ amnezia.healthcheck.start_period }}
 
     labels:
       # === INGRESS: CADDY ===
-{% if amnezia_ingress_provider == 'caddy' %}
-      caddy: "{{ amnezia_domain }}"
+      caddy: "{{ amnezia.domain }}"
       caddy.import: "secure-headers"
       caddy.route: ""
 
       # Step 0: Auth (TinyAuth)
-  {% if amnezia_auth_enabled %}
+{% if amnezia.auth_enabled %}
       caddy.route.0_forward_auth: "tinyauth:3000"
       caddy.route.0_forward_auth.uri: "/api/auth/caddy"
-      caddy.route.0_forward_auth.copy_headers: "{{ amnezia_auth_header_user }} Remote-Name Remote-Email Remote-Groups"
-  {% endif %}
-
-      # Step 9: Proxy
-      caddy.route.9_reverse_proxy: "{{ amnezia_service_name }}:{{ amnezia_port_http }}"
+      caddy.route.0_forward_auth.copy_headers: "Remote-User Remote-Name Remote-Email Remote-Groups"
 {% endif %}
 
+      # Step 9: Proxy
+      caddy.route.9_reverse_proxy: "{{ amnezia.service }}:{{ amnezia.ports.http }}"
+
       # === AUTOHEAL ===
-{% if amnezia_enable_autoheal | bool %}
+{% if amnezia.autoheal | bool %}
       autoheal: "true"
 {% endif %}
 
 networks:
-  {{ amnezia_docker_network }}:
+  {{ docker.network }}:
     external: true

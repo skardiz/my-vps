@@ -1,34 +1,29 @@
 ---
-# [ Service Identity ]
-watchtower_service_name: "watchtower"
-watchtower_container_name: "watchtower"
-watchtower_image: "nickfedor/watchtower"
-watchtower_image_tag: "latest"
+watchtower:
+  service: "watchtower"
 
-# [ Paths & Directories ]
-watchtower_compose_dir: "{{ docker_base_dir }}/{{ watchtower_service_name }}"
+  # Your custom image
+  image: "nickfedor/watchtower:latest"
 
-# [ Configuration ]
-watchtower_schedule: "0 0 4 * * *"  # Cron: 4 AM daily
-watchtower_cleanup: true            # Удалять старые образы
+  path: "{{ docker.base_dir }}/watchtower"
 
-# Режимы работы
-watchtower_monitor_only: false      # Только уведомлять, не обновлять
-watchtower_include_stopped: false   # Не трогать выключенные
-watchtower_revive_stopped: false    # Не включать выключенные
+  # Schedule & Behavior
+  config:
+    schedule: "0 0 4 * * *" # 4 AM daily
+    cleanup: true
+    monitor_only: false
+    include_stopped: false
+    revive_stopped: false
 
-# Безопасность обновления
-watchtower_rolling_restart: true    # Ждать Healthcheck перед следующим (безопаснее!)
-watchtower_timeout: "30s"           # Дать контейнерам 30 сек на корректное завершение
+    # Safety
+    rolling_restart: true
+    timeout: "30s"
 
-# [ Notifications ]
-watchtower_notifications_enabled: true
-watchtower_notification_url: "{{ vault_watchtower.notification_url | default('') }}"
-watchtower_no_startup_message: false
+    # Notification Settings
+    no_startup_message: false
 
-# [ Resources ]
-watchtower_memory_limit: "128M"
-watchtower_cpus: "0.5"
+  # Notifications (Secret URL from Vault)
+  notification_url: "{{ vault_watchtower.notification_url | default('') }}"
 
-# [ Network ]
-watchtower_docker_network: "{{ docker_network_name }}"
+  # Resources
+  memory: "128M"

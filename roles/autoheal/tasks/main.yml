@@ -2,15 +2,14 @@
 - name: Validate required variables
   ansible.builtin.assert:
     that:
-      - docker_base_dir is defined
-      - autoheal_docker_network is defined
+      - docker.base_dir is defined
       - deploy_user is defined
     fail_msg: "CRITICAL: Required variables missing for Autoheal"
   tags: [autoheal, check]
 
-- name: Ensure Autoheal directories exist
+- name: Ensure Autoheal directory exists
   ansible.builtin.file:
-    path: "{{ autoheal_compose_dir }}"
+    path: "{{ autoheal.path }}"
     state: directory
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
@@ -20,17 +19,17 @@
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ autoheal_compose_dir }}/docker-compose.yml"
+    dest: "{{ autoheal.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
+  notify: Restart Autoheal
   tags: [autoheal, config]
 
 - name: Deploy Autoheal Stack
   community.docker.docker_compose_v2:
-    project_src: "{{ autoheal_compose_dir }}"
+    project_src: "{{ autoheal.path }}"
     state: present
-    # Исправлен синтаксис pull
     pull: always
     remove_orphans: true
   become: true

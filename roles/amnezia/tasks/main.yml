@@ -2,12 +2,12 @@
 - name: Validate required variables
   ansible.builtin.assert:
     that:
-      - amnezia_domain is defined
+      - amnezia.domain is defined
       - deploy_user is defined
     fail_msg: "Required variables missing for Amnezia"
   tags: [amnezia, check]
 
-- name: Ensure Amnezia directories exist
+- name: Ensure directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -15,15 +15,15 @@
     group: "{{ deploy_user }}"
     mode: "0755"
   loop:
-    - "{{ amnezia_compose_dir }}"
-    - "{{ amnezia_config_dir }}"
-    - "{{ amnezia_data_dir }}"
+    - "{{ amnezia.path }}"
+    - "{{ amnezia.path }}/config"
+    - "{{ amnezia.path }}/data"
   tags: [amnezia, filesystem]
 
 - name: Render Nginx config
   ansible.builtin.template:
     src: nginx_default.conf.j2
-    dest: "{{ amnezia_config_dir }}/nginx_default.conf"
+    dest: "{{ amnezia.path }}/config/nginx_default.conf"
     mode: "0644"
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
@@ -33,7 +33,7 @@
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ amnezia_compose_dir }}/docker-compose.yml"
+    dest: "{{ amnezia.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
@@ -43,16 +43,15 @@
 - name: Allow AmneziaWG UDP port (UFW)
   community.general.ufw:
     rule: allow
-    port: "{{ amnezia_port_vpn | default('51820') }}"
+    port: "{{ amnezia.ports.vpn }}"
     proto: udp
     comment: "AmneziaWG VPN"
   tags: [amnezia, firewall]
 
 - name: Deploy AmneziaWG Stack
   community.docker.docker_compose_v2:
-    project_src: "{{ amnezia_compose_dir }}"
+    project_src: "{{ amnezia.path }}"
     state: present
-    # Исправлен синтаксис
     pull: always
     remove_orphans: true
   become: true

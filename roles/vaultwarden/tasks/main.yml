@@ -2,7 +2,7 @@
 - name: Validate required variables
   ansible.builtin.assert:
     that:
-      - vaultwarden_domain is defined
+      - vaultwarden.domain is defined
       - deploy_user is defined
     fail_msg: "Required variables missing for Vaultwarden"
   tags: [vaultwarden, check]
@@ -15,22 +15,23 @@
     group: "{{ deploy_user }}"
     mode: "0755"
   loop:
-    - "{{ vaultwarden_compose_dir }}"
-    - "{{ vaultwarden_data_dir }}"
+    - "{{ vaultwarden.path }}"
+    - "{{ vaultwarden.path }}/data"
   tags: [vaultwarden, filesystem]
 
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ vaultwarden_compose_dir }}/docker-compose.yml"
+    dest: "{{ vaultwarden.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
+  notify: Restart Vaultwarden
   tags: [vaultwarden, config]
 
 - name: Deploy Vaultwarden Stack
   community.docker.docker_compose_v2:
-    project_src: "{{ vaultwarden_compose_dir }}"
+    project_src: "{{ vaultwarden.path }}"
     state: present
     pull: always
     remove_orphans: true
