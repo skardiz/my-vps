@@ -1,8 +1,8 @@
-baseURL = "https://{{ hugo_domain }}/"
-title = "{{ hugo_title }}"
-theme = "{{ hugo_theme }}"
+baseURL = "https://{{ hugo.domain }}/"
+title = "{{ hugo.content.title }}"
+theme = "{{ hugo.content.theme }}"
 
-# --- ВЕРНУЛ АНГЛИЙСКИЙ КАК ГЛАВНЫЙ ---
+# --- ЯЗЫК: ENGLISH (Default) ---
 defaultContentLanguage = "en"
 defaultContentLanguageInSubdir = false
 
@@ -15,15 +15,15 @@ enableGitInfo = true
 [outputs]
   home = ["HTML", "RSS", "JSON"]
 
-# --- ЯЗЫК: ENGLISH (Default) ---
+# --- ЯЗЫК: ENGLISH ---
 [languages.en]
   languageName = "🇺🇸"
   weight = 1
-  title = "{{ hugo_title }}"
-  
+  title = "{{ hugo.content.title }}"
+
   [languages.en.params]
     description = "DevOps Engineering Blog"
-    homeInfoParams = { Title = "Hi, I'm {{ hugo_author }} 👋", Content = "Welcome to my DevOps engineering blog. Here I share tutorials about Docker, Ansible, and Linux." }
+    homeInfoParams = { Title = "Hi, I'm {{ hugo.content.author }} 👋", Content = "Welcome to my DevOps engineering blog. Here I share tutorials about Docker, Ansible, and Linux." }
 
   [[languages.en.menu.main]]
     name = "Categories"
@@ -39,11 +39,10 @@ enableGitInfo = true
   languageName = "🇷🇺"
   weight = 2
   title = "Блог Ziix"
-  
+
   [languages.ru.params]
     description = "Заметки DevOps инженера"
-    # --- СТАРЫЙ ВИД (Без аватарки) ---
-    homeInfoParams = { Title = "Привет, я {{ hugo_author }} 👋", Content = "Добро пожаловать в мой инженерный блог. Пишу про Docker, Ansible, Linux и автоматизацию." }
+    homeInfoParams = { Title = "Привет, я {{ hugo.content.author }} 👋", Content = "Добро пожаловать в мой инженерный блог. Пишу про Docker, Ansible, Linux и автоматизацию." }
 
   [[languages.ru.menu.main]]
     name = "Категории"
@@ -65,13 +64,13 @@ enableGitInfo = true
   ShowToc = true
   TocOpen = false
   ShowSearch = true
-  
-  # Комментарии
+
+  # Комментарии (Giscus включается через partial, этот флаг просто для темы)
   comments = true
 
   # Кнопка редактирования
   editPost = { URL = "https://github.com/ziix-ru/blog/edit/main/content", Text = "Edit on GitHub", appendFilePath = true }
-  
+
   # --- ИКОНКИ (Заработают после git push) ---
   [params.assets]
     favicon = "/favicon.ico"
@@ -80,25 +79,25 @@ enableGitInfo = true
     apple_touch_icon = "/apple-touch-icon.png"
 
   [params.cover]
-    hidden = false         # Глобальный переключатель (оставь false)
+    hidden = false         # Глобальный переключатель
     hiddenInList = false   # В ленте/на главной ПОКАЗЫВАТЬ
-    hiddenInSingle = true  # Внутри статьи СКРЫВАТЬ (то, что ты хочешь!)
+    hiddenInSingle = true  # Внутри статьи СКРЫВАТЬ
 
 # Соцсети
-{% if hugo_social_github %}
+{% if hugo.content.social.github %}
   [[params.socialIcons]]
     name = "github"
-    url = "{{ hugo_social_github }}"
+    url = "{{ hugo.content.social.github }}"
 {% endif %}
-{% if hugo_social_telegram %}
+{% if hugo.content.social.telegram %}
   [[params.socialIcons]]
     name = "telegram"
-    url = "{{ hugo_social_telegram }}"
+    url = "{{ hugo.content.social.telegram }}"
 {% endif %}
-{% if hugo_social_email %}
+{% if hugo.content.social.email %}
   [[params.socialIcons]]
     name = "email"
-    url = "mailto:{{ hugo_social_email }}"
+    url = "mailto:{{ hugo.content.social.email }}"
 {% endif %}
   [[params.socialIcons]]
     name = "rss"

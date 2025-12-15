@@ -1,8 +1,8 @@
 services:
   # --- Nginx Service ---
-  {{ hugo_service_name }}:
+  {{ hugo.service }}:
     image: nginx:alpine
-    container_name: {{ hugo_service_name }}
+    container_name: {{ hugo.service }}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1"]
@@ -10,57 +10,57 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - {{ hugo_network_name }}
+      - {{ docker.network }}
     volumes:
-      - "{{ hugo_public_dir }}:/usr/share/nginx/html:ro"
+      - "{{ hugo.public_dir }}:/usr/share/nginx/html:ro"
     labels:
-{% if hugo_ingress_provider == 'caddy' %}
-      caddy: "{{ hugo_domain }}"
+      # === INGRESS: CADDY ===
+      caddy: "{{ hugo.domain }}"
       caddy.reverse_proxy: "{{ "{{" }}upstreams 80{{ "}}" }}"
       caddy.encode: "gzip"
       caddy.import: "secure-headers"
       caddy.header.Cache-Control: "public, max-age=3600"
-      
-      # Matrix Delegation
+
+      # Matrix Delegation (Important!)
       caddy.handle_path_0: "/.well-known/matrix/server"
-      caddy.handle_path_0.respond: '{"m.server":"matrix.{{ hugo_domain }}:443"}'
+      caddy.handle_path_0.respond: '{"m.server":"matrix.{{ hugo.domain }}:443"}'
       caddy.handle_path_0.header: "Content-Type application/json"
       caddy.handle_path_0.header_0: "Access-Control-Allow-Origin *"
 
       caddy.handle_path_1: "/.well-known/matrix/client"
-      caddy.handle_path_1.respond: '{"m.homeserver":{"base_url":"https://matrix.{{ hugo_domain }}"},"org.matrix.msc4143.rtc_foci":[{"type":"livekit","livekit_service_url":"https://livekit.{{ hugo_domain }}","jwt_service_url":"https://livekit.{{ hugo_domain }}/sfu/get"}]}'
+      caddy.handle_path_1.respond: '{"m.homeserver":{"base_url":"https://matrix.{{ hugo.domain }}"},"org.matrix.msc4143.rtc_foci":[{"type":"livekit","livekit_service_url":"https://livekit.{{ hugo.domain }}","jwt_service_url":"https://livekit.{{ hugo.domain }}/sfu/get"}]}'
       caddy.handle_path_1.header: "Content-Type application/json"
       caddy.handle_path_1.header_0: "Access-Control-Allow-Origin *"
-{% endif %}
-{% if hugo_enable_autoheal | bool %}
+
+{% if hugo.autoheal | bool %}
       autoheal: "true"
 {% endif %}
 
   # --- Hugo Builder ---
-  {{ hugo_builder_container }}:
+  {{ hugo.builder }}:
     image: hugomods/hugo:base
-    container_name: {{ hugo_builder_container }}
+    container_name: {{ hugo.builder }}
     restart: "no"
     environment:
       - HUGO_ENV=production
     volumes:
-      - "{{ hugo_site_dir }}:/src"
-      - "{{ hugo_public_dir }}:/dest"
-      # --- ВАЖНО: Монтируем внешние конфиги ---
-      - "{{ hugo_base_dir }}/hugo.toml:/src/hugo_ansible.toml:ro"
-      - "{{ hugo_base_dir }}/comments.html:/src/layouts/partials/comments.html:ro"
+      - "{{ hugo.site_dir }}:/src"
+      - "{{ hugo.public_dir }}:/dest"
+      # Configs override
+      - "{{ hugo.path }}/hugo.toml:/src/hugo_ansible.toml:ro"
+      - "{{ hugo.path }}/comments.html:/src/layouts/partials/comments.html:ro"
     command: >
       hugo
       --config /src/hugo_ansible.toml
       --destination /dest
       --cleanDestinationDir
       --minify
-      --baseURL {{ hugo_base_url }}/
+      --baseURL https://{{ hugo.domain }}/
     networks:
-      - {{ hugo_network_name }}
+      - {{ docker.network }}
     labels:
       caddy: ""
 
 networks:
-  {{ hugo_network_name }}:
+  {{ docker.network }}:
     external: true

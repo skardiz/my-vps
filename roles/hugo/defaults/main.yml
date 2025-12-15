@@ -1,35 +1,38 @@
 ---
-# Имя сервиса
-hugo_service_name: hugo
-hugo_builder_container: hugo-builder
+hugo:
+  service: "hugo"
+  builder: "hugo-builder"
 
-# Пути
-hugo_base_dir: /srv/docker/{{ hugo_service_name }}
-hugo_site_dir: "{{ hugo_base_dir }}/site"
-hugo_public_dir: "/srv/docker/shared/{{ hugo_service_name }}"
+  # Paths
+  path: "{{ docker.base_dir }}/hugo"
+  site_dir: "{{ docker.base_dir }}/hugo/site"
+  public_dir: "{{ docker.base_dir }}/shared/hugo"
 
-# Git
-hugo_repo: "https://github.com/ziix-ru/blog.git"
-hugo_repo_version: "main"
+  # Git Repo
+  repo:
+    url: "https://github.com/ziix-ru/blog.git"
+    version: "main"
 
-# Network & Ingress
-hugo_network_name: "web"
-hugo_domain: "ziix.ru"
-hugo_base_url: "https://{{ hugo_domain }}"
-hugo_ingress_provider: "caddy"
+  # Network
+  domain: "ziix.ru"
 
-# Integrations
-hugo_enable_autoheal: "{{ use_autoheal | default(true) }}"
-# Sablier для статики не нужен (по умолчанию false всегда)
-hugo_use_sablier: false
+  # --- CONTENT CONFIGURATION ---
+  content:
+    title: "ziix blog"
+    author: "ziix"
+    theme: "PaperMod"
 
-# --- Контент и Метаданные (ДОБАВЬ ЭТО) ---
-hugo_title: "ziix blog"
-hugo_description: "Заметки DevOps инженера о Docker, Ansible и Self-Hosted."
-hugo_author: "ziix"
-hugo_theme: "PaperMod"
+    # Social Links
+    social:
+      github: "https://github.com/ziix-ru"
+      telegram: "https://t.me/ziix_ru"
+      email: "example@ziix.ru"
 
-# Соцсети (оставь пустым или удали, если не нужно)
-hugo_social_github: "https://github.com/ziix-ru"
-hugo_social_telegram: "https://t.me/ziix_ru"
-hugo_social_email: "example@ziix.ru"
+  # --- COMMENTS (Giscus) ---
+  giscus:
+    repo: "ziix-ru/blog"
+    repo_id: "R_kgDOQkPaEw"
+    category_id: "DIC_kwDOQkPaE84Czj8a"
+
+  # --- INTEGRATIONS ---
+  autoheal: true

@@ -2,7 +2,7 @@
 - name: Validate variables
   ansible.builtin.assert:
     that:
-      - hugo_domain is defined
+      - hugo.domain is defined
       - deploy_user is defined
     fail_msg: "Required variables missing for Hugo"
   tags: [hugo, check]
@@ -15,73 +15,77 @@
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
   loop:
-    - "{{ hugo_base_dir }}"
-    - "{{ hugo_site_dir }}"
-    - "{{ hugo_public_dir }}"
+    - "{{ hugo.path }}"
+    - "{{ hugo.site_dir }}"
+    - "{{ hugo.public_dir }}"
   become: true
+  tags: [hugo, filesystem]
 
-# 1. GIT: Теперь Force=no работает корректно, т.к. мы не трогаем файлы внутри
+# 1. GIT Clone
 - name: Clone Hugo Repository
   ansible.builtin.git:
-    repo: "{{ hugo_repo }}"
-    dest: "{{ hugo_site_dir }}"
-    version: "{{ hugo_repo_version }}"
+    repo: "{{ hugo.repo.url }}"
+    dest: "{{ hugo.site_dir }}"
+    version: "{{ hugo.repo.version }}"
     force: false
     update: true
     recursive: true
   become: true
   become_user: "{{ deploy_user }}"
   register: hugo_git_pull
+  tags: [hugo, deploy]
 
-# 2. Рендерим файлы ВНЕ репозитория (в hugo_base_dir)
-# Это сохраняет репозиторий "чистым" для Git
-
+# 2. Render Configs (outside repo)
 - name: Render comments.html partial
   ansible.builtin.template:
     src: comments.html.j2
-    dest: "{{ hugo_base_dir }}/comments.html"
+    dest: "{{ hugo.path }}/comments.html"
     mode: "0644"
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
   register: hugo_comments_render
+  tags: [hugo, config]
 
 - name: Render Hugo Config
   ansible.builtin.template:
     src: hugo.toml.j2
-    dest: "{{ hugo_base_dir }}/hugo.toml"
+    dest: "{{ hugo.path }}/hugo.toml"
     mode: "0644"
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
   register: hugo_config_render
+  tags: [hugo, config]
 
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ hugo_base_dir }}/docker-compose.yml"
+    dest: "{{ hugo.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
   register: hugo_compose_render
+  tags: [hugo, config]
 
-# 3. Deploy
-
+# 3. Deploy Nginx
 - name: Deploy Hugo Stack (Nginx Only)
   community.docker.docker_compose_v2:
-    project_src: "{{ hugo_base_dir }}"
+    project_src: "{{ hugo.path }}"
     state: present
-    services: ["{{ hugo_service_name }}"]
+    services: ["{{ hugo.service }}"]
     pull: missing
     remove_orphans: true
     recreate: auto
   become: true
   become_user: "{{ deploy_user }}"
+  tags: [hugo, deploy]
 
-- name: Run Hugo Builder (On Changes)
+# 4. Run Builder (On Changes)
+- name: Run Hugo Builder
   community.docker.docker_compose_v2:
-    project_src: "{{ hugo_base_dir }}"
-    services: ["{{ hugo_builder_container }}"]
+    project_src: "{{ hugo.path }}"
+    services: ["{{ hugo.builder }}"]
     state: present
-    recreate: always
+    recreate: always # Always run builder if triggered
   become: true
   become_user: "{{ deploy_user }}"
   when: >
@@ -90,19 +94,15 @@
     hugo_comments_render.changed or
     hugo_compose_render.changed
   register: hugo_build_run
+  tags: [hugo, build]
 
+# 5. Fix permissions
 - name: Fix permissions AFTER build
   ansible.builtin.file:
-    path: "{{ hugo_public_dir }}"
+    path: "{{ hugo.public_dir }}"
     state: directory
     mode: '0755'
     recurse: true
   become: true
   when: hugo_build_run.changed
-  tags: [hugo] # noqa: no-handler
-
-- name: Verify Nginx is running
-  ansible.builtin.command: "docker ps -f name={{ hugo_service_name }} -f status=running --format '{{ '{{' }}.Status{{ '}}' }}'"
-  register: hugo_nginx_status
-  changed_when: false
-  failed_when: hugo_nginx_status.stdout == ""
+  tags: [hugo, build]
