@@ -1,5 +1,4 @@
 ---
-# ansible-lint: disable:var-naming[no-role-prefix]
 tuwunel:
   service: "tuwunel"
 

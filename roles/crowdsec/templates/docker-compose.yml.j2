@@ -13,6 +13,7 @@ services:
       # Run as user 1000 to match host files if needed, or default
       GID: "1000"
       COLLECTIONS: "{{ crowdsec.collections | join(' ') }}"
+      USE_WAL: "true"
 
     volumes:
       - ./acquis.yaml:/etc/crowdsec/acquis.yaml

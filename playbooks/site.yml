@@ -12,21 +12,21 @@
     - { role: docker, tags: docker }
 
     # [NETWORK]
-    - { role: caddy, tags: caddy, when: enable.caddy | default(false) }
     - { role: socket_proxy, tags: socket_proxy, when: enable.socket_proxy | default(false) }
-    - { role: identity, tags: identity, when: enable.identity | default(false) }
     - { role: sablier, tags: sablier, when: enable.sablier | default(false) }
     - { role: crowdsec, tags: crowdsec, when: enable.crowdsec | default(false) }
-    - { role: amnezia, tags: amnezia, when: enable.amnezia | default(false) }
 
     # [OPERATIONS]
     - { role: autoheal, tags: autoheal, when: enable.autoheal | default(false) }
     - { role: watchtower, tags: watchtower, when: enable.watchtower | default(false) }
+    - { role: caddy, tags: caddy, when: enable.caddy | default(false) }
+    - { role: identity, tags: identity, when: enable.identity | default(false) }
     - { role: gatus, tags: gatus, when: enable.gatus | default(false) }
     - { role: dozzle, tags: dozzle, when: enable.dozzle | default(false) }
     - { role: beszel, tags: beszel, when: enable.beszel | default(false) }
 
     # [APPLICATIONS]
+    - { role: amnezia, tags: amnezia, when: enable.amnezia | default(false) }
     - { role: homer, tags: homer, when: enable.homer | default(false) }
     - { role: vaultwarden, tags: vaultwarden, when: enable.vaultwarden | default(false) }
     - { role: hugo, tags: hugo, when: enable.hugo | default(false) }

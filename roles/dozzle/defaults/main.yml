@@ -3,7 +3,7 @@ dozzle:
   service: "dozzle"
 
   # Image + Tag
-  image: "amir20/dozzle:v8.13.14" # Pinned version is good for stability
+  image: "amir20/dozzle:latest"
 
   path: "{{ docker.base_dir }}/dozzle"
 

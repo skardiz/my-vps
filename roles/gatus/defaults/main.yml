@@ -3,7 +3,7 @@ gatus:
   service: "gatus"
 
   # Image + Tag
-  image: "twinproduction/gatus:v5.16.0"
+  image: "twinproduction/gatus:latest"
 
   path: "{{ docker.base_dir }}/gatus"
 

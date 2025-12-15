@@ -4,7 +4,7 @@ restic:
 
   # Image Build Info
   image: "local/restic-with-rclone:latest"
-  base_image: "restic/restic:0.17.0"
+  base_image: "restic/restic:latest"
 
   # Paths
   path: "{{ docker.base_dir }}/restic"
