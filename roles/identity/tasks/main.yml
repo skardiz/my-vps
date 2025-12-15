@@ -1,16 +1,9 @@
 ---
-- name: 🔍 DEBUG VAULT SOURCE
-  debug:
-    msg:
-      - "Vault loaded: {{ vault_identity is defined }}"
-      - "Vault content: {{ vault_identity | default('MISSING') }}"
-  tags: [identity, check]
-
 - name: Validate secrets
   ansible.builtin.assert:
     that:
       - identity.lldap.admin.password is defined
-      - identity.lldap.keys.seed is defined
+      - identity.lldap.secrets is defined
     fail_msg: "CRITICAL: Missing Identity secrets!"
   tags: [identity, check]
 

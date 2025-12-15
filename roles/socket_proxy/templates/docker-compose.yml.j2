@@ -26,9 +26,9 @@ services:
       - "-loglevel=info"
       - "-listenip=0.0.0.0"
       - "-allowfrom={{ socket_proxy.allow_from }}"
-      - "-allowGET={{ socket_proxy.patterns.get }}"
-      - "-allowPOST={{ socket_proxy.patterns.post }}"
-      - "-allowHEAD={{ socket_proxy.patterns.head }}"
+      - "-allowGET={{ socket_proxy.patterns['get'] }}"
+      - "-allowPOST={{ socket_proxy.patterns['post'] }}"
+      - "-allowHEAD={{ socket_proxy.patterns['head'] }}"
       - "-watchdoginterval={{ socket_proxy.config.watchdog_interval }}"
       - "-shutdowngracetime={{ socket_proxy.config.shutdown_grace }}"
 {% if socket_proxy.config.stop_on_watchdog | bool %}

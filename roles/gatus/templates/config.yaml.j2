@@ -28,7 +28,7 @@ endpoints:
   # ----------------------------------------------------------------------------
   - name: "Main Website"
     group: "1. 🌐 Public Access"
-    url: "https://{{ base_domain }}"
+    url: "https://{{ domain.base }}"
     interval: 1m
     conditions:
       - "[STATUS] == 200"

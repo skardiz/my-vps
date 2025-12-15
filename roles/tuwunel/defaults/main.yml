@@ -62,9 +62,9 @@ livekit:
   # Ports (Inherit from Global Vars)
   ports:
     http: 7880
-    tcp: "{{ ports.livekit.tcp }}"
-    udp_start: "{{ ports.livekit.udp.start }}"
-    udp_end: "{{ ports.livekit.udp.end }}"
+    tcp: 7881
+    udp_start: 50000
+    udp_end: 50050
 
   memory: "384M"
   log_level: "info"

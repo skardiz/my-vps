@@ -20,8 +20,8 @@ services:
       - start
       - --provider.name=docker
 
-    volumes:
 {% if not sablier.socket_proxy | bool %}
+    volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 {% endif %}
 

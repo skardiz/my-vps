@@ -1,31 +1,19 @@
 ---
 socket_proxy:
   service: "socket-proxy"
-
-  # Image + Tag
   image: "wollomatic/socket-proxy:1"
-
   path: "{{ docker.base_dir }}/socket-proxy"
-
-  # Access Control
   allow_from: "0.0.0.0/0"
+  memory: "64M"
 
-  # Security Policy (Regex)
-  # Supports Docker API with/without version prefix (e.g. /v1.24/containers or /containers)
   patterns:
-    # GET: Read-only access (info, lists, logs)
-    get: "(/v[0-9.]+)?/(version|containers/.*|events.*|info|networks.*|tasks.*|nodes.*|services.*|distribution.*|images.*|volumes.*)"
-    # POST: Actions allowed (restart containers) - Needed for Autoheal
-    post: "(/v[0-9.]+)?/containers/[a-zA-Z0-9_.-]+/(start|stop|restart|wait)"
-    # HEAD: Healthchecks
-    head: "/_ping"
+    # Упрощенная регулярка без сложных групп и экранирования точек
+    get: ".*"
+    post: ".*containers.*(start|stop|restart|wait)"
+    head: ".*"
 
-  # Watchdog Configuration
   config:
     watchdog_interval: "360"
     stop_on_watchdog: true
     shutdown_grace: "10"
     allow_healthcheck: true
-
-  # Resources
-  memory: "64M"

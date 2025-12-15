@@ -17,8 +17,8 @@ services:
       - LLDAP_HTTP_PORT={{ identity.lldap.port.http }}
       - LLDAP_LDAP_PORT={{ identity.lldap.port.ldap }}
       - LLDAP_LDAP_BASE_DN={{ identity.lldap.base_dn }}
-      - LLDAP_KEY_SEED={{ identity.lldap.keys.seed }}
-      - LLDAP_JWT_SECRET={{ identity.lldap.keys.jwt_secret }}
+      - LLDAP_KEY_SEED={{ identity.lldap.secrets.seed }}
+      - LLDAP_JWT_SECRET={{ identity.lldap.secrets.jwt_secret }}
       - LLDAP_LDAP_USER_DN={{ identity.lldap.admin.dn }}
       - LLDAP_LDAP_USER_PASS={{ identity.lldap.admin.password }}
       - LLDAP_DATABASE_URL=sqlite:///data/users.db?mode=rwc

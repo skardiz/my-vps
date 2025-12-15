@@ -20,7 +20,7 @@ identity:
       dn: "{{ vault_identity.lldap.admin_login }}"
       password: "{{ vault_identity.lldap.admin_password }}"
       email: "{{ vault_identity.lldap.admin_email }}"
-    keys:
+    secrets:
       seed: "{{ vault_identity.lldap.key_seed }}"
       jwt_secret: "{{ vault_identity.lldap.jwt_secret }}"
 

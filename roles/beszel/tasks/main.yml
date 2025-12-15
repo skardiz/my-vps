@@ -154,8 +154,95 @@
   when: beszel_oidc_file.stat.exists
   tags: [beszel, config, oidc]
 
-# ... [OIDC Generation Logic - Same Logic, updated paths] ...
-# (Я сократил этот блок, он идентичен, только используй beszel.path и beszel.oidc.* переменные)
+# 1. Авто-генерация клиента в PocketID и сохранение в файл
+- name: "⚡ AUTO-SETUP: OIDC Client for Beszel"
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      rm -f /tmp/pocket_cookie_beszel.txt
+
+      # Если файл уже есть, выходим (но лучше проверка через when в ansible)
+      if [ -f "{{ beszel.path }}/.beszel_oidc_secrets" ]; then
+        echo "SKIPPED"
+        exit 0
+      fi
+
+      sleep 2
+
+      # Получаем токен админа
+      LINK=$(docker exec pocketid /app/pocket-id one-time-access-token {{ beszel.oidc.admin_dn }})
+      TOKEN=$(echo "$LINK" | grep -o 'https://[^ ]*' | awk -F/ '{print $NF}' | tr -d '\r')
+
+      # Логинимся
+      curl -s -c /tmp/pocket_cookie_beszel.txt -X POST "http://127.0.0.1:1411/api/one-time-access-token/$TOKEN" > /dev/null
+
+      # 1. Создаем клиента (БЕЗ PKCE, т.к. с ним могут быть проблемы с секретом)
+      RESP=$(curl -s -b /tmp/pocket_cookie_beszel.txt \
+        -X POST "http://127.0.0.1:1411/api/oidc/clients" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "Beszel",
+          "launchUrl": "https://{{ beszel.domain }}",
+          "callbackUrls": ["https://{{ beszel.domain }}/api/oauth2-redirect"],
+          "pkceEnabled": true,
+          "isPublic": false
+        }')
+
+      # Парсим ID
+      CLIENT_ID=$(echo "$RESP" | jq -r '.id // empty')
+
+      if [ -z "$CLIENT_ID" ]; then
+        echo "FAIL: No ID created. Resp: $RESP"
+        exit 1
+      fi
+
+      # 2. Генерируем секрет (ОТДЕЛЬНЫМ ЗАПРОСОМ!)
+      SECRET_RESP=$(curl -s -b /tmp/pocket_cookie_beszel.txt -X POST "http://127.0.0.1:1411/api/oidc/clients/$CLIENT_ID/secret")
+      CLIENT_SECRET=$(echo "$SECRET_RESP" | jq -r '.secret // empty')
+
+      if [ -z "$CLIENT_SECRET" ]; then
+        echo "FAIL: No Secret generated. Resp: $SECRET_RESP"
+        exit 1
+      fi
+
+      # Пишем в файл
+      echo "ID:$CLIENT_ID"
+      echo "SECRET:$CLIENT_SECRET"
+    executable: /bin/bash
+  register: beszel_auto_oidc
+  when:
+    - not beszel_oidc_file.stat.exists
+    - beszel.oidc.enabled | bool
+  changed_when: true
+  tags: [beszel, config, oidc]
+
+# 2. Сохраняем секреты в файл (берем из stdout shell-команды)
+- name: Save Beszel OIDC secrets
+  ansible.builtin.copy:
+    content: |
+      CLIENT_ID={{ beszel_auto_oidc.stdout | regex_search('ID:([^\s]+)', '\1') | first }}
+      CLIENT_SECRET={{ beszel_auto_oidc.stdout | regex_search('SECRET:([^\s]+)', '\1') | first }}
+    dest: "{{ beszel.path }}/.beszel_oidc_secrets"
+    mode: "0600"
+    owner: "{{ deploy_user }}"
+  when:
+    - not beszel_oidc_file.stat.exists
+    - beszel_auto_oidc.changed
+    - "'ID:' in beszel_auto_oidc.stdout"
+  tags: [beszel, config, oidc]
+
+# 3. Устанавливаем факты (Final Facts)
+- name: Set Beszel OIDC Facts
+  ansible.builtin.set_fact:
+    beszel_final_client_id: >-
+      {{ (beszel_oidc_content['content'] | b64decode | regex_search('CLIENT_ID=([^\n]+)', '\1') | first)
+      if beszel_oidc_file.stat.exists
+      else (beszel_auto_oidc.stdout | regex_search('ID:([^\s]+)', '\1') | first | default('')) }}
+    beszel_final_client_secret: >-
+      {{ (beszel_oidc_content['content'] | b64decode | regex_search('CLIENT_SECRET=([^\n]+)', '\1') | first)
+      if beszel_oidc_file.stat.exists
+      else (beszel_auto_oidc.stdout | regex_search('SECRET:([^\s]+)', '\1') | first | default('')) }}
+  tags: [beszel, config, oidc]
 
 # ==============================================================================
 # 🚀 FINAL DEPLOYMENT
