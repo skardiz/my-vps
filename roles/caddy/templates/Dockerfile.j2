@@ -1,11 +1,11 @@
-FROM {{ caddy_builder_image }} AS builder
+FROM {{ caddy.builder_image }} AS builder
 
 RUN xcaddy build \
-    --with github.com/lucaslorentz/caddy-docker-proxy/v2@{{ caddy_docker_proxy_version }} \
-    --with github.com/sablierapp/sablier-caddy-plugin@{{ caddy_sablier_plugin_version }} \
+    --with github.com/lucaslorentz/caddy-docker-proxy/v2@{{ caddy.version.docker_proxy }} \
+    --with github.com/sablierapp/sablier-caddy-plugin@{{ caddy.version.sablier }} \
     --with github.com/caddy-dns/cloudflare
 
-FROM caddy:2.10.2-alpine
+FROM {{ caddy.base_image }}
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 
 CMD ["caddy", "docker-proxy"]

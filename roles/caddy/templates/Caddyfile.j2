@@ -1,7 +1,7 @@
 {
-    email {{ caddy_acme_email }}
+    email {{ caddy.email }}
 
-{% if caddy_enable_access_logs | bool %}
+{% if caddy.logs.enabled | bool %}
     log {
         output file /var/log/caddy/access.log {
             roll_size 10MiB
@@ -11,13 +11,13 @@
     }
 {% endif %}
 
-{% if caddy_use_cloudflare_dns | bool %}
+{% if caddy.cloudflare.enabled | bool %}
     acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN} {
         resolvers 1.1.1.1
     }
 {% endif %}
 
-{% if caddy_sablier_enabled | bool %}
+{% if caddy.sablier_enabled | bool %}
     order sablier before reverse_proxy
 {% endif %}
 

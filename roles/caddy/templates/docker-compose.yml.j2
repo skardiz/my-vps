@@ -1,48 +1,54 @@
 services:
-  {{ caddy_service_name }}:
+  {{ caddy.service }}:
     build:
       context: .
       dockerfile: Dockerfile
 
-    container_name: "{{ caddy_container_name }}"
-    restart: "{{ caddy_restart_policy }}"
+    container_name: "{{ caddy.service }}"
+    restart: "unless-stopped"
 
     deploy:
       resources:
         limits:
-          memory: {{ caddy_memory_limit }}
+          memory: {{ caddy.memory }}
 
     ports:
-      - "{{ caddy_port_http }}:80"
-      - "{{ caddy_port_https }}:443"
-      - "{{ caddy_port_https }}:443/udp"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
 
     environment:
-{% if caddy_use_socket_proxy %}
-      DOCKER_HOST: "{{ caddy_docker_host }}"
-{% endif %}
-{% if caddy_use_cloudflare_dns %}
-      CLOUDFLARE_API_TOKEN: "{{ caddy_cloudflare_token }}"
-{% endif %}
-      CADDY_INGRESS_NETWORKS: "{{ caddy_docker_network }}"
+      # Network & Integration
+      CADDY_INGRESS_NETWORKS: "{{ docker.network }}"
       CADDY_DOCKER_CADDYFILE_PATH: "/config/Caddyfile"
-      CADDY_DOCKER_SCAN_STOPPED_CONTAINERS: "true"
-      ACME_EMAIL: "{{ caddy_acme_email }}"
-      TZ: "{{ caddy_timezone }}"
+      CADDY_DOCKER_SCAN_STOPPED_CONTAINERS: "true" # Important for Sablier
+      
+      # ACME
+      ACME_EMAIL: "{{ caddy.email }}"
+{% if caddy.cloudflare.enabled | bool %}
+      CLOUDFLARE_API_TOKEN: "{{ caddy.cloudflare.token }}"
+{% endif %}
+      
+      # Timezone
+      TZ: "{{ system.timezone | default('UTC') }}"
+
+{% if caddy.socket_proxy | bool %}
+      DOCKER_HOST: "tcp://socket-proxy:2375"
+{% endif %}
 
     volumes:
-{% if not caddy_use_socket_proxy %}
+{% if not caddy.socket_proxy | bool %}
       - /var/run/docker.sock:/var/run/docker.sock:ro
 {% endif %}
-      - "{{ caddy_data_dir }}:/data"
-      - "{{ caddy_config_dir }}:/config"
-{% if caddy_enable_access_logs | bool %}
-      - "{{ caddy_logs_dir }}:/var/log/caddy"
+      - "{{ caddy.path }}/data:/data"
+      - "{{ caddy.path }}/config:/config"
+{% if caddy.logs.enabled | bool %}
+      - "{{ caddy.logs.path }}:/var/log/caddy"
 {% endif %}
 
     networks:
-      - {{ caddy_docker_network }}
-{% if caddy_use_socket_proxy %}
+      - {{ docker.network }}
+{% if caddy.socket_proxy | bool %}
       - socket_proxy
 {% endif %}
 
@@ -53,19 +59,17 @@ services:
       caddy_0.header.X-Frame-Options: "DENY"
       caddy_0.header.Referrer-Policy: "strict-origin-when-cross-origin"
 
-{% if caddy_hc_enabled %}
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:{{ caddy_port_admin }}/metrics"]
-      interval: {{ caddy_hc_interval }}
-      timeout: {{ caddy_hc_timeout }}
-      retries: {{ caddy_hc_retries }}
-      start_period: {{ caddy_hc_start_period }}
-{% endif %}
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/metrics"]
+      interval: {{ caddy.healthcheck.interval }}
+      timeout: {{ caddy.healthcheck.timeout }}
+      retries: {{ caddy.healthcheck.retries }}
+      start_period: {{ caddy.healthcheck.start_period }}
 
 networks:
-  {{ caddy_docker_network }}:
+  {{ docker.network }}:
     external: true
-{% if caddy_use_socket_proxy %}
+{% if caddy.socket_proxy | bool %}
   socket_proxy:
     external: true
 {% endif %}

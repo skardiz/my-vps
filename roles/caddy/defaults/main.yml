@@ -1,58 +1,42 @@
 ---
-# [ Service Identity ]
-caddy_service_name: "caddy"
-caddy_container_name: "{{ caddy_service_name }}"
+caddy:
+  service: "caddy"
 
-# [ Paths & Directories ]
-caddy_compose_dir: "{{ docker_base_dir }}/{{ caddy_service_name }}"
-caddy_config_dir: "{{ caddy_compose_dir }}/config"
-caddy_data_dir: "{{ caddy_compose_dir }}/data"
-caddy_logs_dir: "{{ caddy_compose_dir }}/logs" # <--- Новая переменная
+  # Image Build Config
+  builder_image: "caddy:builder-alpine"
+  base_image: "caddy:alpine"
 
-# [ Network & Ports ]
-caddy_docker_network: "{{ docker_network_name }}"
-caddy_port_http: 80
-caddy_port_https: 443
-caddy_port_admin: 2019
+  # Versions (Pinned for stability)
+  version:
+    docker_proxy: "v2.10.0" # v2.10.0 еще может быть unstable, проверь совместимость
+    sablier: "v1.0.1"
 
-# [ Configuration ]
-caddy_acme_email: "{{ admin_email | default('admin@example.com') }}"
-caddy_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
-caddy_timezone: "{{ docker_timezone | default('UTC') }}"
+  # ACME (Let's Encrypt)
+  email: "{{ admin.email | default('admin@example.com') }}" # Используем глобальную admin.email
 
-# [ Logging ]
-caddy_enable_access_logs: true # <--- Включает запись JSON логов в файл
+  # Paths
+  path: "{{ docker.base_dir }}/caddy"
 
-# [ Resources ]
-caddy_memory_limit: "{{ docker_memory_limit | default('256M') }}"
+  # Logs
+  logs:
+    enabled: true
+    path: "{{ docker.base_dir }}/caddy/logs"
 
-# [ Build Versions ]
-caddy_builder_image: "caddy:builder-alpine"
-caddy_final_image_base: "caddy:alpine"
-caddy_docker_proxy_version: "v2.10.0"
-caddy_sablier_plugin_version: "v1.0.1"
+  # Cloudflare DNS Challenge
+  cloudflare:
+    enabled: "{{ enable.cloudflare_dns | default(false) }}"
+    token: "{{ vault_caddy.cloudflare_token | default('') }}"
 
-# [ Healthcheck ]
-caddy_hc_enabled: true
-caddy_hc_interval: "{{ docker_hc_interval | default('30s') }}"
-caddy_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
-caddy_hc_retries: "{{ docker_hc_retries | default(3) }}"
-caddy_hc_start_period: "{{ docker_hc_start_period | default('10s') }}"
+  # Integration
+  socket_proxy: "{{ enable.socket_proxy | default(false) }}"
+  sablier_enabled: "{{ enable.sablier | default(false) }}"
 
-# [ ACME DNS Challenge ]
-caddy_use_cloudflare_dns: "{{ use_cloudflare_dns | default(false) }}"
-caddy_cloudflare_token: "{{ vault_caddy.cloudflare_token | default('') }}"
+  # Resources
+  memory: "256M"
 
-# [ Socket Proxy ]
-caddy_use_socket_proxy: "{{ use_socket_proxy | default(false) }}"
-caddy_docker_host: >-
-  {{ 'tcp://socket-proxy:2375'
-     if caddy_use_socket_proxy
-     else 'unix:///var/run/docker.sock' }}
-
-# [ Sablier ]
-caddy_sablier_enabled: "{{ use_sablier | default(false) }}"
-caddy_sablier_docker_url: >-
-  {{ 'http://socket-proxy:2375'
-     if caddy_use_socket_proxy
-     else 'unix:///var/run/docker.sock' }}
+  # Healthcheck
+  healthcheck:
+    interval: "30s"
+    timeout: "5s"
+    retries: 3
+    start_period: "10s"

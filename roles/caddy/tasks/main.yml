@@ -2,8 +2,8 @@
 - name: Validate required variables
   ansible.builtin.assert:
     that:
-      - caddy_acme_email is defined
-      - docker_network_name is defined
+      - caddy.email is defined
+      - docker.network is defined
       - deploy_user is defined
     fail_msg: "Required variables missing for Caddy role"
   tags: [caddy, check]
@@ -16,45 +16,66 @@
     group: "{{ deploy_user }}"
     mode: "0755"
   loop:
-    - "{{ caddy_compose_dir }}"
-    - "{{ caddy_config_dir }}"
-    - "{{ caddy_data_dir }}"
-    - "{{ caddy_logs_dir }}"
+    - "{{ caddy.path }}"
+    - "{{ caddy.path }}/config"
+    - "{{ caddy.path }}/data"
+    - "{{ caddy.logs.path }}"
   tags: [caddy, filesystem]
 
-# --- НОВАЯ ЗАДАЧА: Создаем файл лога с правами на чтение ---
-- name: Ensure Caddy access log file exists with readable permissions
+- name: Ensure Access Log file exists
   ansible.builtin.file:
-    path: "{{ caddy_logs_dir }}/access.log"
+    path: "{{ caddy.logs.path }}/access.log"
     state: touch
-    owner: "root"     # Caddy в контейнере обычно пишет от root
+    owner: "root" # Caddy runs as root inside container by default
     group: "root"
-    mode: "0644"      # rw-r--r-- (Чтение доступно всем)
+    mode: "0644"
+  when: caddy.logs.enabled | bool
   tags: [caddy, filesystem]
-# -----------------------------------------------------------
 
-- name: Render Caddyfile & Dockerfile
+- name: Render Configs
   ansible.builtin.template:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: "0644"
     owner: "{{ deploy_user }}"
-    group: "{{ deploy_user }}"
   loop:
-    - { src: "Caddyfile.j2", dest: "{{ caddy_config_dir }}/Caddyfile" }
-    - { src: "Dockerfile.j2", dest: "{{ caddy_compose_dir }}/Dockerfile" }
+    - { src: "Caddyfile.j2", dest: "{{ caddy.path }}/config/Caddyfile" }
+    - { src: "Dockerfile.j2", dest: "{{ caddy.path }}/Dockerfile" }
   register: caddy_configs
+  notify: Restart Caddy
   tags: [caddy, config]
 
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ caddy_compose_dir }}/docker-compose.yml"
+    dest: "{{ caddy.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
   register: caddy_compose
+  notify: Restart Caddy
   tags: [caddy, config]
+
+- name: Create .dockerignore
+  ansible.builtin.copy:
+    dest: "{{ caddy.path }}/.dockerignore"
+    content: |
+      .git
+      data
+      config
+      logs
+  tags: [caddy, config]
+
+- name: Build Caddy Image
+  community.docker.docker_image:
+    name: "{{ caddy.service }}:local"
+    source: build
+    build:
+      path: "{{ caddy.path }}"
+      pull: true
+    # Пересобираем только если изменился Dockerfile или compose (force build)
+    force_source: "{{ caddy_configs.changed or caddy_compose.changed }}"
+  tags: [caddy, build]
 
 - name: Allow HTTP/HTTPS ports (UFW)
   community.general.ufw:
@@ -67,34 +88,11 @@
     - "443"
   tags: [caddy, firewall]
 
-- name: Create .dockerignore for Caddy
-  ansible.builtin.copy:
-    dest: "{{ caddy_compose_dir }}/.dockerignore"
-    mode: "0644"
-    content: |
-      .git
-      node_modules
-      data
-      config
-      logs
-      tmp
-  tags: [caddy, config]
-
-- name: Build Caddy Image
-  community.docker.docker_image:
-    name: "{{ caddy_service_name }}:local"
-    source: build
-    build:
-      path: "{{ caddy_compose_dir }}"
-      pull: true
-    force_source: "{{ caddy_configs.changed }}"
-  tags: [caddy, build]
-
 - name: Deploy Caddy Stack
   community.docker.docker_compose_v2:
-    project_src: "{{ caddy_compose_dir }}"
+    project_src: "{{ caddy.path }}"
     state: present
-    pull: never
+    pull: never # Используем локальный образ
     remove_orphans: true
   become: true
   become_user: "{{ deploy_user }}"
