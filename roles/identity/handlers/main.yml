@@ -1,5 +1,5 @@
 ---
-- name: Restart PocketID for LDAP sync
+- name: Restart PocketID
   community.docker.docker_container:
     name: pocketid
     state: started

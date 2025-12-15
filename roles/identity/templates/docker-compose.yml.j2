@@ -2,172 +2,155 @@ services:
   # [ LLDAP ]
   lldap:
     container_name: lldap
-    image: "{{ identity_lldap_image }}:{{ identity_lldap_version }}"
-    restart: "{{ identity_restart_policy }}"
-    security_opt:
-      - no-new-privileges:true
+    image: "{{ identity.lldap.image }}"
+    restart: "unless-stopped"
+    security_opt: ["no-new-privileges:true"]
     deploy:
       resources:
         limits:
-          memory: {{ identity_lldap_memory_limit }}
+          memory: {{ identity.lldap.memory }}
           cpus: '0.5'
     environment:
-      - UID={{ identity_puid }}
-      - GID={{ identity_pgid }}
-      - TZ={{ identity_timezone }}
-      - LLDAP_HTTP_PORT={{ identity_lldap_port_http }}
-      - LLDAP_LDAP_PORT={{ identity_lldap_port_ldap }}
-      - LLDAP_LDAP_BASE_DN={{ identity_lldap_base_dn }}
-      - LLDAP_KEY_SEED={{ identity_lldap_key_seed }}
-      - LLDAP_JWT_SECRET={{ identity_lldap_jwt_secret }}
-      - LLDAP_LDAP_USER_DN={{ identity_lldap_admin_dn }}
-      - LLDAP_LDAP_USER_PASS={{ identity_lldap_admin_pass }}
+      - UID={{ docker.defaults.puid }}
+      - GID={{ docker.defaults.pgid }}
+      - TZ={{ system.timezone | default('UTC') }}
+      - LLDAP_HTTP_PORT={{ identity.lldap.port.http }}
+      - LLDAP_LDAP_PORT={{ identity.lldap.port.ldap }}
+      - LLDAP_LDAP_BASE_DN={{ identity.lldap.base_dn }}
+      - LLDAP_KEY_SEED={{ identity.lldap.keys.seed }}
+      - LLDAP_JWT_SECRET={{ identity.lldap.keys.jwt_secret }}
+      - LLDAP_LDAP_USER_DN={{ identity.lldap.admin.dn }}
+      - LLDAP_LDAP_USER_PASS={{ identity.lldap.admin.password }}
       - LLDAP_DATABASE_URL=sqlite:///data/users.db?mode=rwc
       - LLDAP_VERBOSE=false
     volumes:
       - ./data/lldap:/data
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:{{ identity_lldap_port_http }}/health"]
-      interval: {{ identity_hc_interval }}
-      timeout: {{ identity_hc_timeout }}
-      retries: {{ identity_hc_retries }}
-      start_period: {{ identity_hc_start_period }}
-
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:{{ identity.lldap.port.http }}/health"]
+      interval: {{ identity.healthcheck.interval }}
+      timeout: {{ identity.healthcheck.timeout }}
+      retries: {{ identity.healthcheck.retries }}
+      start_period: {{ identity.healthcheck.start_period }}
     labels:
-{% if identity_ingress_provider == 'caddy' %}
-      caddy: "{{ identity_lldap_domain }}"
-      caddy.reverse_proxy: "{{ '{{upstreams %s}}' | format(identity_lldap_port_http) }}"
+      caddy: "{{ identity.lldap.domain }}"
+      caddy.reverse_proxy: "{{ '{{upstreams %s}}' | format(identity.lldap.port.http) }}"
       caddy.import: "secure-headers"
-{% endif %}
-
-{% if identity_enable_autoheal | bool %}
+{% if identity.autoheal | bool %}
       autoheal: "true"
 {% endif %}
-
     networks:
-      - {{ docker_network_name }}
+      - {{ docker.network }}
 
   # [ PocketID ]
   pocketid:
     container_name: pocketid
-    image: "{{ identity_pocketid_image }}:{{ identity_pocketid_version }}"
-    restart: "{{ identity_restart_policy }}"
-    security_opt:
-      - no-new-privileges:true
+    image: "{{ identity.pocketid.image }}"
+    restart: "unless-stopped"
+    security_opt: ["no-new-privileges:true"]
     deploy:
       resources:
         limits:
-          memory: {{ identity_pocketid_memory_limit }}
+          memory: {{ identity.pocketid.memory }}
     ports:
-      - "127.0.0.1:1411:1411"
+      - "127.0.0.1:{{ identity.pocketid.port }}:1411"
     depends_on:
       lldap:
         condition: service_healthy
     environment:
-      APP_URL: "https://{{ identity_pocketid_domain }}"
-      TRUST_PROXY: "{{ identity_pocketid_trust_proxy }}"
-      PUID: "{{ identity_puid }}"
-      PGID: "{{ identity_pgid }}"
-      UI_CONFIG_DISABLED: "{{ identity_pocketid_ui_config_disabled }}"
-      EMAILS_VERIFIED: "{{ identity_pocketid_emails_verified }}"
-      TZ: "{{ identity_timezone }}"
+      APP_URL: "https://{{ identity.pocketid.domain }}"
+      TRUST_PROXY: "true"
+      PUID: "{{ docker.defaults.puid }}"
+      PGID: "{{ docker.defaults.pgid }}"
+      UI_CONFIG_DISABLED: "true"
+      EMAILS_VERIFIED: "true"
+      TZ: "{{ system.timezone | default('UTC') }}"
 
       # LDAP Config
       SESSION_DURATION: "129600"
       ANALYTICS_DISABLED: "true"
       LDAP_SOFT_DELETE_USERS: "false"
       LDAP_ENABLED: "true"
-      LDAP_URL: "ldap://lldap:{{ identity_lldap_port_ldap }}"
-      LDAP_BIND_DN: "uid={{ identity_lldap_admin_dn }},ou=people,{{ identity_lldap_base_dn }}"
-      LDAP_BIND_PASSWORD: "{{ identity_lldap_admin_pass }}"
-      LDAP_BASE: "{{ identity_pocketid_ldap_base }}"
+      LDAP_URL: "ldap://lldap:{{ identity.lldap.port.ldap }}"
+      LDAP_BIND_DN: "uid={{ identity.lldap.admin.dn }},ou=people,{{ identity.lldap.base_dn }}"
+      LDAP_BIND_PASSWORD: "{{ identity.lldap.admin.password }}"
+      LDAP_BASE: "{{ identity.pocketid.ldap.base_dn }}"
       LDAP_USER_SEARCH_FILTER: "(objectClass=person)"
       LDAP_USER_GROUP_SEARCH_FILTER: "(objectClass=groupOfUniqueNames)"
-      LDAP_ATTRIBUTE_ADMIN_GROUP: "{{ identity_pocketid_ldap_admin_group }}"
+      LDAP_ATTRIBUTE_ADMIN_GROUP: "{{ identity.pocketid.ldap.admin_group }}"
 
       # Mappings
-      LDAP_ATTRIBUTE_USER_UNIQUE_IDENTIFIER: "{{ identity_pocketid_ldap_attr_user_uid }}"
-      LDAP_ATTRIBUTE_USER_USERNAME: "{{ identity_pocketid_ldap_attr_user_username }}"
-      LDAP_ATTRIBUTE_USER_EMAIL: "{{ identity_pocketid_ldap_attr_user_email }}"
-      LDAP_ATTRIBUTE_USER_FIRST_NAME: "{{ identity_pocketid_ldap_attr_user_firstname }}"
-      LDAP_ATTRIBUTE_USER_LAST_NAME: "{{ identity_pocketid_ldap_attr_user_lastname }}"
-      LDAP_ATTRIBUTE_USER_PROFILE_PICTURE: "{{ identity_pocketid_ldap_attr_user_picture }}"
-      LDAP_ATTRIBUTE_GROUP_MEMBER: "{{ identity_pocketid_ldap_attr_group_member }}"
-      LDAP_ATTRIBUTE_GROUP_UNIQUE_IDENTIFIER: "{{ identity_pocketid_ldap_attr_group_uid }}"
-      LDAP_ATTRIBUTE_GROUP_NAME: "{{ identity_pocketid_ldap_attr_group_name }}"
+      LDAP_ATTRIBUTE_USER_UNIQUE_IDENTIFIER: "{{ identity.pocketid.ldap.attributes.user.uid }}"
+      LDAP_ATTRIBUTE_USER_USERNAME: "{{ identity.pocketid.ldap.attributes.user.username }}"
+      LDAP_ATTRIBUTE_USER_EMAIL: "{{ identity.pocketid.ldap.attributes.user.email }}"
+      LDAP_ATTRIBUTE_USER_FIRST_NAME: "{{ identity.pocketid.ldap.attributes.user.firstname }}"
+      LDAP_ATTRIBUTE_USER_LAST_NAME: "{{ identity.pocketid.ldap.attributes.user.lastname }}"
+      LDAP_ATTRIBUTE_USER_PROFILE_PICTURE: "{{ identity.pocketid.ldap.attributes.user.picture }}"
+      LDAP_ATTRIBUTE_GROUP_MEMBER: "{{ identity.pocketid.ldap.attributes.group.member }}"
+      LDAP_ATTRIBUTE_GROUP_UNIQUE_IDENTIFIER: "{{ identity.pocketid.ldap.attributes.group.uid }}"
+      LDAP_ATTRIBUTE_GROUP_NAME: "{{ identity.pocketid.ldap.attributes.group.name }}"
 
-{% if identity_pocketid_maxmind_license_key %}
-      MAXMIND_LICENSE_KEY: "{{ identity_pocketid_maxmind_license_key }}"
+{% if identity.pocketid.license_key %}
+      MAXMIND_LICENSE_KEY: "{{ identity.pocketid.license_key }}"
 {% endif %}
     volumes:
       - ./data/pocketid/data:/app/data
     healthcheck:
       test: ["CMD", "/app/pocket-id", "healthcheck"]
-      interval: {{ identity_hc_interval }}
-      timeout: {{ identity_hc_timeout }}
-      retries: {{ identity_hc_retries }}
-      start_period: {{ identity_hc_start_period }}
-
+      interval: {{ identity.healthcheck.interval }}
+      timeout: {{ identity.healthcheck.timeout }}
+      retries: {{ identity.healthcheck.retries }}
+      start_period: {{ identity.healthcheck.start_period }}
     labels:
-{% if identity_ingress_provider == 'caddy' %}
-      caddy: "{{ identity_pocketid_domain }}"
-      caddy.reverse_proxy: "{{ '{{upstreams %s}}' | format(identity_pocketid_port) }}"
+      caddy: "{{ identity.pocketid.domain }}"
+      caddy.reverse_proxy: "{{ '{{upstreams %s}}' | format(identity.pocketid.port) }}"
       caddy.import: "secure-headers"
-{% endif %}
-
-{% if identity_enable_autoheal | bool %}
+{% if identity.autoheal | bool %}
       autoheal: "true"
 {% endif %}
-
     networks:
-      - {{ docker_network_name }}
+      - {{ docker.network }}
 
   # [ TinyAuth ]
   tinyauth:
     container_name: tinyauth
-    image: "{{ identity_tinyauth_image }}:{{ identity_tinyauth_version }}"
-    restart: "{{ identity_restart_policy }}"
-    security_opt:
-      - no-new-privileges:true
+    image: "{{ identity.tinyauth.image }}"
+    restart: "unless-stopped"
+    security_opt: ["no-new-privileges:true"]
     deploy:
       resources:
         limits:
-          memory: {{ identity_tinyauth_memory_limit }}
+          memory: {{ identity.tinyauth.memory }}
     depends_on:
       pocketid:
         condition: service_healthy
     volumes:
       - ./data/tinyauth:/app/data
     environment:
-      APP_URL: "https://{{ identity_tinyauth_domain }}"
+      APP_URL: "https://{{ identity.tinyauth.domain }}"
       TRUST_PROXY: "true"
-      TZ: "{{ identity_timezone }}"
-{% if identity_tinyauth_auto_redirect | default(false) | bool %}
+      TZ: "{{ system.timezone | default('UTC') }}"
+{% if identity.tinyauth.auto_redirect | bool %}
       OAUTH_AUTO_REDIRECT: "pocketid"
 {% endif %}
-      PROVIDERS_POCKETID_CLIENT_ID: "{{ identity_tinyauth_dynamic_id | default(identity_tinyauth_client_id) }}"
-      PROVIDERS_POCKETID_CLIENT_SECRET: "{{ identity_tinyauth_dynamic_secret | default(identity_tinyauth_client_secret) }}"
-      PROVIDERS_POCKETID_AUTH_URL: "{{ identity_tinyauth_pocketid_public_url }}/authorize"
-      PROVIDERS_POCKETID_TOKEN_URL: "{{ identity_tinyauth_pocketid_internal_url }}/api/oidc/token"
-      PROVIDERS_POCKETID_USER_INFO_URL: "{{ identity_tinyauth_pocketid_internal_url }}/api/oidc/userinfo"
-      PROVIDERS_POCKETID_REDIRECT_URL: "https://{{ identity_tinyauth_domain }}/api/oauth/callback/pocketid"
+      PROVIDERS_POCKETID_CLIENT_ID: "{{ tinyauth_dynamic_id | default(identity.tinyauth.client_id) }}"
+      PROVIDERS_POCKETID_CLIENT_SECRET: "{{ tinyauth_dynamic_secret | default(identity.tinyauth.client_secret) }}"
+      PROVIDERS_POCKETID_AUTH_URL: "https://{{ identity.pocketid.domain }}/authorize"
+      PROVIDERS_POCKETID_TOKEN_URL: "http://pocketid:1411/api/oidc/token"
+      PROVIDERS_POCKETID_USER_INFO_URL: "http://pocketid:1411/api/oidc/userinfo"
+      PROVIDERS_POCKETID_REDIRECT_URL: "https://{{ identity.tinyauth.domain }}/api/oauth/callback/pocketid"
       PROVIDERS_POCKETID_SCOPES: "openid email profile groups"
       PROVIDERS_POCKETID_NAME: "Pocket ID"
 
     labels:
-{% if identity_ingress_provider == 'caddy' %}
-      caddy: "{{ identity_tinyauth_domain }}"
-      caddy.reverse_proxy: "{{ '{{upstreams %s}}' | format(identity_tinyauth_port) }}"
+      caddy: "{{ identity.tinyauth.domain }}"
+      caddy.reverse_proxy: "{{ '{{upstreams %s}}' | format(identity.tinyauth.port) }}"
       caddy.import: "secure-headers"
-{% endif %}
-
-{% if identity_enable_autoheal | bool %}
+{% if identity.autoheal | bool %}
       autoheal: "true"
 {% endif %}
-
     networks:
-      - {{ docker_network_name }}
+      - {{ docker.network }}
 
 networks:
-  {{ docker_network_name }}:
+  {{ docker.network }}:
     external: true

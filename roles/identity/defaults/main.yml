@@ -1,81 +1,71 @@
 ---
-# [ Service Identity ]
-identity_service_name: "identity"
-identity_compose_dir: "{{ docker_base_dir }}/{{ identity_service_name }}"
-identity_data_dir: "{{ identity_compose_dir }}/data"
-identity_config_dir: "{{ identity_compose_dir }}/config"
+identity:
+  service: "identity"
 
-# [ Global Config ]
-identity_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
-identity_timezone: "{{ docker_timezone | default('Europe/Moscow') }}"
-identity_puid: "{{ docker_puid | default('1000') }}"
-identity_pgid: "{{ docker_pgid | default('1000') }}"
+  # Paths
+  path: "{{ docker.base_dir }}/identity"
+  data_dir: "{{ docker.base_dir }}/identity/data"
 
-# [ Ingress ]
-identity_ingress_provider: "caddy"
+  # --- LLDAP ---
+  lldap:
+    image: "lldap/lldap:latest"
+    domain: "ldap.{{ domain.base }}"
+    port:
+      http: 17170
+      ldap: 3890
+    base_dn: "dc=ziix,dc=ru"
+    memory: "128M"
+    # Secrets from Vault
+    admin:
+      dn: "{{ vault_identity.lldap.admin_login }}"
+      password: "{{ vault_identity.lldap.admin_password }}"
+      email: "{{ vault_identity.lldap.admin_email }}"
+    keys:
+      seed: "{{ vault_identity.lldap.key_seed }}"
+      jwt_secret: "{{ vault_identity.lldap.jwt_secret }}"
 
-# [ Integrations ]
-identity_enable_autoheal: "{{ use_autoheal | default(true) }}"
-identity_use_sablier: false # AUTH MUST BE ALWAYS ON
+  # --- POCKET ID ---
+  pocketid:
+    image: "ghcr.io/pocket-id/pocket-id:latest"
+    domain: "id.{{ domain.base }}"
+    port: 1411
+    memory: "256M"
+    license_key: "" # MaxMind Key (Optional)
 
-# [ LLDAP Configuration ]
-identity_lldap_image: "lldap/lldap"
-identity_lldap_version: "{{ docker_image_tag | default('latest') }}"
-identity_lldap_domain: "ldap.{{ base_domain }}"
-identity_lldap_port_http: 17170
-identity_lldap_port_ldap: 3890
-identity_lldap_base_dn: "dc=ziix,dc=ru"
-identity_lldap_memory_limit: "{{ docker_memory_limit | default('128M') }}"
+    # LDAP Mapping
+    ldap:
+      base_dn: "ou=people,dc=ziix,dc=ru" # Hardcoded base_dn suffix or use lldap.base_dn
+      admin_group: "lldap_admin"
+      attributes:
+        user:
+          uid: "uid"
+          username: "uid"
+          email: "mail"
+          firstname: "givenname"
+          lastname: "sn"
+          picture: "jpegphoto"
+        group:
+          member: "member"
+          uid: "cn"
+          name: "cn"
 
-# [ Admin & Secrets ]
-identity_lldap_admin_dn: "{{ vault_identity.lldap.admin_login }}"
-identity_lldap_admin_pass: "{{ vault_identity.lldap.admin_password }}"
-identity_lldap_admin_email: "{{ vault_identity.lldap.admin_email }}"
-identity_lldap_key_seed: "{{ vault_identity.lldap.key_seed }}"
-identity_lldap_jwt_secret: "{{ vault_identity.lldap.jwt_secret }}"
+  # --- TINY AUTH (OIDC Proxy) ---
+  tinyauth:
+    image: "ghcr.io/steveiliop56/tinyauth:latest"
+    domain: "auth.{{ domain.base }}"
+    port: 3000
+    memory: "128M"
+    auto_redirect: true
+    # Secrets (Optional, if not auto-generated)
+    client_id: "{{ vault_identity.tinyauth.pocketid_client_id | default('') }}"
+    client_secret: "{{ vault_identity.tinyauth.pocketid_client_secret | default('') }}"
 
-# [ PocketID Configuration ]
-identity_pocketid_image: "ghcr.io/pocket-id/pocket-id"
-identity_pocketid_version: "{{ docker_image_tag | default('latest') }}"
-identity_pocketid_domain: "id.{{ base_domain }}"
-identity_pocketid_port: "1411"
-identity_pocketid_trust_proxy: "true"
-identity_pocketid_maxmind_license_key: ""
-identity_pocketid_ui_config_disabled: "true"
-identity_pocketid_emails_verified: "true"
-identity_pocketid_memory_limit: "{{ docker_memory_limit | default('256M') }}"
+  # --- INTEGRATIONS ---
+  autoheal: true
 
-# [ LDAP Integration ]
-identity_pocketid_ldap_base: "ou=people,{{ identity_lldap_base_dn }}"
-identity_pocketid_ldap_admin_group: "lldap_admin"
-identity_pocketid_ldap_attr_user_uid: "uid"
-identity_pocketid_ldap_attr_user_username: "uid"
-identity_pocketid_ldap_attr_user_email: "mail"
-identity_pocketid_ldap_attr_user_firstname: "givenname"
-identity_pocketid_ldap_attr_user_lastname: "sn"
-identity_pocketid_ldap_attr_user_picture: "jpegphoto"
-identity_pocketid_ldap_attr_group_member: "member"
-identity_pocketid_ldap_attr_group_uid: "cn"
-identity_pocketid_ldap_attr_group_name: "cn"
-
-# [ TinyAuth Configuration ]
-identity_tinyauth_image: "ghcr.io/steveiliop56/tinyauth"
-identity_tinyauth_version: "{{ docker_image_tag | default('latest') }}"
-identity_tinyauth_domain: "auth.{{ base_domain }}"
-identity_tinyauth_port: "3000"
-identity_tinyauth_auto_redirect: true
-identity_tinyauth_memory_limit: "{{ docker_memory_limit | default('128M') }}"
-
-# [ Secrets ]
-identity_tinyauth_client_id: "{{ vault_identity.tinyauth.pocketid_client_id | default('') }}"
-identity_tinyauth_client_secret: "{{ vault_identity.tinyauth.pocketid_client_secret | default('') }}"
-
-# [ OAuth URLs ]
-identity_tinyauth_pocketid_public_url: "https://{{ identity_pocketid_domain }}"
-identity_tinyauth_pocketid_internal_url: "http://pocketid:1411"
-
-# [ Healthcheck ]
-identity_hc_interval: "{{ docker_hc_interval | default('30s') }}"
-identity_hc_timeout: "{{ docker_hc_timeout | default('5s') }}"
-identity_hc_retries: "{{ docker_hc_retries | default(3) }}"
-identity_hc_start_period: "60s"
+  # --- HEALTHCHECK ---
+  healthcheck:
+    interval: "30s"
+    timeout: "5s"
+    retries: 3
+    start_period: "60s"
