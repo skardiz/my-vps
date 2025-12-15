@@ -1,14 +1,13 @@
 ---
-# Валидация (Best Practice)
 - name: Validate required variables
   ansible.builtin.assert:
     that:
-      - docker_network_name is defined
+      - docker.network is defined
       - deploy_user is defined
     fail_msg: "Required variables missing for Socket Proxy role"
   tags: [socket_proxy, check]
 
-# 1. Получаем GID
+# 1. Получаем GID группы docker
 - name: Get Docker Group GID
   ansible.builtin.shell: "set -o pipefail && getent group docker | cut -d: -f3"
   args:
@@ -20,13 +19,13 @@
 
 - name: Set Docker GID fact
   ansible.builtin.set_fact:
-    socket_proxy_docker_gid: "{{ socket_proxy_docker_gid_result.stdout }}"
+    socket_proxy_gid: "{{ socket_proxy_docker_gid_result.stdout }}"
   tags: [socket_proxy, config]
 
 # 2. Создаем директории
 - name: Ensure Socket Proxy directory exists
   ansible.builtin.file:
-    path: "{{ socket_proxy_compose_dir }}"
+    path: "{{ socket_proxy.path }}"
     state: directory
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
@@ -37,7 +36,7 @@
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ socket_proxy_compose_dir }}/docker-compose.yml"
+    dest: "{{ socket_proxy.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
@@ -47,7 +46,7 @@
 # 4. Запускаем стек
 - name: Deploy Socket Proxy Stack
   community.docker.docker_compose_v2:
-    project_src: "{{ socket_proxy_compose_dir }}"
+    project_src: "{{ socket_proxy.path }}"
     state: present
     pull: always
     remove_orphans: true

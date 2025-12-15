@@ -1,44 +1,42 @@
 ---
-# [ Service Identity ]
-syncthing_service_name: "syncthing"
-syncthing_container_name: "{{ syncthing_service_name }}"
-syncthing_image: "lscr.io/linuxserver/syncthing"
-syncthing_image_tag: "{{ docker_image_tag | default('latest') }}"
+# ansible-lint: disable:var-naming[no-role-prefix]
+syncthing:
+  service: "syncthing"
+  
+  # Image + Tag
+  image: "lscr.io/linuxserver/syncthing:latest"
 
-# [ Paths & Directories ]
-syncthing_compose_dir: "{{ docker_base_dir }}/{{ syncthing_service_name }}"
-syncthing_config_dir: "{{ syncthing_compose_dir }}/config"
-syncthing_data_dir: "{{ syncthing_compose_dir }}/data"
+  # Domain
+  domain: "sync.{{ domain.base }}"
+  
+  # Paths
+  path: "{{ docker.base_dir }}/syncthing"
+  # Data directory (separate from config)
+  data_dir: "{{ docker.base_dir }}/syncthing/data"
 
-# [ Network & Ingress ]
-syncthing_docker_network: "{{ docker_network_name }}"
-syncthing_domain: "sync.{{ base_domain }}"
-syncthing_ingress_provider: "caddy"
-syncthing_web_port: "8384"
-syncthing_tcp_port: "22000"
-syncthing_udp_port: "22000"
-syncthing_discovery_port: "21027"
+  # Ports (Exposed for Sync)
+  ports:
+    web: 8384       # Internal GUI
+    tcp: 22000      # Transfer TCP
+    udp: 22000      # Transfer QUIC
+    discovery: 21027 # Discovery (Local)
 
-# [ Configuration ]
-syncthing_restart_policy: "{{ docker_restart_policy | default('unless-stopped') }}"
-syncthing_timezone: "{{ docker_timezone | default('Europe/Moscow') }}"
-syncthing_puid: "{{ docker_puid | default('1000') }}"
-syncthing_pgid: "{{ docker_pgid | default('1000') }}"
+  # Permissions (LinuxServer.io specific)
+  puid: "{{ docker.defaults.puid }}"
+  pgid: "{{ docker.defaults.pgid }}"
 
-# [ Resources ]
-syncthing_memory_limit: "{{ docker_memory_limit | default('384M') }}"
+  # Auth (SSO via TinyAuth)
+  auth_enabled: true
 
-# [ Authentication ]
-syncthing_auth_enabled: true
-syncthing_auth_header_user: "Remote-User"
+  # Resources
+  memory: "384M"
 
-# [ Integrations ]
-syncthing_enable_autoheal: "{{ use_autoheal | default(true) }}"
-# Sablier: Off (Sync must be always on)
-syncthing_use_sablier: false
+  # Integrations
+  autoheal: true
 
-# [ Healthcheck Strategy ]
-syncthing_hc_interval: "60s"
-syncthing_hc_timeout: "10s"
-syncthing_hc_retries: 3
-syncthing_hc_start_period: "60s"
+  # Healthcheck
+  healthcheck:
+    interval: "60s"
+    timeout: "10s"
+    retries: 3
+    start_period: "60s"

@@ -1,26 +1,35 @@
 services:
-  {{ sablier_service_name }}:
-    image: "{{ sablier_image }}:{{ sablier_version }}"
-    container_name: "{{ sablier_service_name }}"
-    restart: unless-stopped
+  {{ sablier.service }}:
+    image: "{{ sablier.image }}"
+    container_name: "{{ sablier.service }}"
+    restart: "unless-stopped"
 
     deploy:
       resources:
         limits:
-          memory: {{ sablier_memory_limit }}
+          memory: {{ sablier.memory }}
 
     environment:
-      # Указываем адрес прокси (определен в defaults)
-      DOCKER_HOST: "{{ sablier_docker_host }}"
-      LOGGING_LEVEL: "info"
+      LOGGING_LEVEL: "{{ sablier.log_level }}"
+      # Docker Provider Configuration
+{% if sablier.socket_proxy | bool %}
+      DOCKER_HOST: "tcp://socket-proxy:2375"
+{% endif %}
 
     command:
       - start
       - --provider.name=docker
 
+    volumes:
+{% if not sablier.socket_proxy | bool %}
+      - /var/run/docker.sock:/var/run/docker.sock
+{% endif %}
+
     networks:
-      - {{ sablier_network }} # web (если нужен доступ к API сабли извне)
-      - socket_proxy          # <--- ДОБАВЛЕНО: Доступ к управлению Docker
+      - {{ docker.network }} # For Caddy/Traefik middleware
+{% if sablier.socket_proxy | bool %}
+      - socket_proxy         # For Docker API Access
+{% endif %}
 
     healthcheck:
       test: ["CMD", "sablier", "health"]
@@ -29,7 +38,9 @@ services:
       retries: 3
 
 networks:
-  {{ sablier_network }}:
+  {{ docker.network }}:
     external: true
-  socket_proxy:               # <--- ДОБАВЛЕНО: Объявление внешней сети
+{% if sablier.socket_proxy | bool %}
+  socket_proxy:
     external: true
+{% endif %}

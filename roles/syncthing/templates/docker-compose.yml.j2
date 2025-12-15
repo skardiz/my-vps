@@ -1,59 +1,59 @@
 services:
-  {{ syncthing_service_name }}:
-    image: "{{ syncthing_image }}:{{ syncthing_image_tag }}"
-    container_name: "{{ syncthing_container_name }}"
-    restart: "{{ syncthing_restart_policy }}"
-    # DISABLE DOCKER INIT (Conflict with s6-overlay)
+  {{ syncthing.service }}:
+    image: "{{ syncthing.image }}"
+    container_name: "{{ syncthing.service }}"
+    restart: "unless-stopped"
+    # DISABLE DOCKER INIT (Conflict with s6-overlay in LinuxServer images)
     init: false
 
     deploy:
       resources:
         limits:
-          memory: {{ syncthing_memory_limit }}
+          memory: {{ syncthing.memory }}
 
     environment:
-      PUID: "{{ syncthing_puid }}"
-      PGID: "{{ syncthing_pgid }}"
-      TZ: "{{ syncthing_timezone }}"
+      PUID: "{{ syncthing.puid }}"
+      PGID: "{{ syncthing.pgid }}"
+      TZ: "{{ system.timezone | default('UTC') }}"
 
     volumes:
       - "./config:/config"
-      - "{{ syncthing_data_dir }}:/data"
+      - "{{ syncthing.data_dir }}:/data"
 
     ports:
-      - "{{ syncthing_tcp_port }}:{{ syncthing_tcp_port }}/tcp"
-      - "{{ syncthing_udp_port }}:{{ syncthing_udp_port }}/udp"
-      - "{{ syncthing_discovery_port }}:{{ syncthing_discovery_port }}/udp"
+      - "{{ syncthing.ports.tcp }}:{{ syncthing.ports.tcp }}/tcp"
+      - "{{ syncthing.ports.udp }}:{{ syncthing.ports.udp }}/udp"
+      - "{{ syncthing.ports.discovery }}:{{ syncthing.ports.discovery }}/udp"
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8384/rest/noauth/health"]
-      interval: {{ syncthing_hc_interval }}
-      timeout: {{ syncthing_hc_timeout }}
-      retries: {{ syncthing_hc_retries }}
-      start_period: {{ syncthing_hc_start_period }}
+      interval: {{ syncthing.healthcheck.interval }}
+      timeout: {{ syncthing.healthcheck.timeout }}
+      retries: {{ syncthing.healthcheck.retries }}
+      start_period: {{ syncthing.healthcheck.start_period }}
 
     labels:
-{% if syncthing_ingress_provider == 'caddy' %}
-      caddy: "{{ syncthing_domain }}"
+      # === INGRESS: CADDY ===
+      caddy: "{{ syncthing.domain }}"
       caddy.import: "secure-headers"
       caddy.route: ""
 
-{% if syncthing_auth_enabled %}
+{% if syncthing.auth_enabled %}
       caddy.route.0_forward_auth: "tinyauth:3000"
       caddy.route.0_forward_auth.uri: "/api/auth/caddy"
-      caddy.route.0_forward_auth.copy_headers: "X-User X-Email X-Groups {{ syncthing_auth_header_user }} Remote-Email"
+      caddy.route.0_forward_auth.copy_headers: "Remote-User Remote-Name Remote-Email Remote-Groups"
 {% endif %}
 
-      caddy.route.9_reverse_proxy: "{{ syncthing_service_name }}:{{ syncthing_web_port }}"
-{% endif %}
+      caddy.route.9_reverse_proxy: "{{ syncthing.service }}:{{ syncthing.ports.web }}"
 
-{% if syncthing_enable_autoheal | bool %}
+      # === AUTOHEAL ===
+{% if syncthing.autoheal | bool %}
       autoheal: "true"
 {% endif %}
 
     networks:
-      - {{ syncthing_docker_network }}
+      - {{ docker.network }}
 
 networks:
-  {{ syncthing_docker_network }}:
+  {{ docker.network }}:
     external: true

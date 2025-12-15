@@ -1,7 +1,7 @@
 ---
-- name: Restart Socket Proxy
+- name: Restart Syncthing
   community.docker.docker_compose_v2:
-    project_src: "{{ socket_proxy.path }}"
+    project_src: "{{ syncthing.path }}"
     state: restarted
   become: true
   become_user: "{{ deploy_user }}"

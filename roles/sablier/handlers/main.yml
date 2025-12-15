@@ -1,7 +1,7 @@
 ---
-- name: Restart Socket Proxy
+- name: Restart Sablier
   community.docker.docker_compose_v2:
-    project_src: "{{ socket_proxy.path }}"
+    project_src: "{{ sablier.path }}"
     state: restarted
   become: true
   become_user: "{{ deploy_user }}"

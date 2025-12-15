@@ -1,18 +1,18 @@
 services:
-  {{ socket_proxy_service_name }}:
-    image: "{{ socket_proxy_image }}:{{ socket_proxy_tag }}"
-    container_name: "{{ socket_proxy_container_name }}"
-    restart: unless-stopped
+  {{ socket_proxy.service }}:
+    image: "{{ socket_proxy.image }}"
+    container_name: "{{ socket_proxy.service }}"
+    restart: "unless-stopped"
 
-    # nobody (65534) + GID группы docker хоста
-    user: "65534:{{ socket_proxy_docker_gid }}"
+    # Run as nobody (65534) + Host Docker GID
+    user: "65534:{{ socket_proxy_gid }}"
 
     read_only: true
 
     deploy:
       resources:
         limits:
-          memory: {{ socket_proxy_memory_limit }}
+          memory: {{ socket_proxy.memory }}
 
     cap_drop:
       - ALL
@@ -25,22 +25,24 @@ services:
     command:
       - "-loglevel=info"
       - "-listenip=0.0.0.0"
-      - "-allowfrom={{ socket_proxy_allow_from }}"
-      - "-allowGET={{ socket_proxy_allow_get_pattern }}"
-      - "-allowPOST={{ socket_proxy_allow_post_pattern }}"
-      - "-allowHEAD={{ socket_proxy_allow_head_pattern }}"
-      - "-watchdoginterval={{ socket_proxy_watchdog_interval }}"
+      - "-allowfrom={{ socket_proxy.allow_from }}"
+      - "-allowGET={{ socket_proxy.patterns.get }}"
+      - "-allowPOST={{ socket_proxy.patterns.post }}"
+      - "-allowHEAD={{ socket_proxy.patterns.head }}"
+      - "-watchdoginterval={{ socket_proxy.config.watchdog_interval }}"
+      - "-shutdowngracetime={{ socket_proxy.config.shutdown_grace }}"
+{% if socket_proxy.config.stop_on_watchdog | bool %}
       - "-stoponwatchdog"
-      - "-shutdowngracetime={{ socket_proxy_shutdown_grace }}"
-{% if socket_proxy_allow_healthcheck | bool %}
+{% endif %}
+{% if socket_proxy.config.allow_healthcheck | bool %}
       - "-allowhealthcheck"
 {% endif %}
 
     networks:
-      # Подключаемся к сети socket_proxy
+      # Expose ONLY to the isolated internal network
       socket_proxy:
         aliases:
-          - socket-proxy # Чтобы клиенты находили его по этому имени
+          - socket-proxy # DNS alias for other containers
 
     healthcheck:
       test: ["CMD", "./healthcheck"]
@@ -50,5 +52,5 @@ services:
 
 networks:
   socket_proxy:
-    name: socket_proxy # Явное имя сети
-    internal: true     # Полная изоляция от интернета
+    name: socket_proxy
+    internal: true # STRICTLY ISOLATED

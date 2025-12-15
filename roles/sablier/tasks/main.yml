@@ -1,7 +1,15 @@
 ---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - docker.network is defined
+      - deploy_user is defined
+    fail_msg: "Required variables missing for Sablier"
+  tags: [sablier, check]
+
 - name: Ensure Sablier directory exists
   ansible.builtin.file:
-    path: "{{ docker_base_dir }}/{{ sablier_service_name }}"
+    path: "{{ sablier.path }}"
     state: directory
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
@@ -11,15 +19,16 @@
 - name: Render docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ docker_base_dir }}/{{ sablier_service_name }}/docker-compose.yml"
+    dest: "{{ sablier.path }}/docker-compose.yml"
     mode: "0640"
     owner: "{{ deploy_user }}"
     group: docker
+  notify: Restart Sablier
   tags: [sablier, config]
 
 - name: Deploy Sablier Stack
   community.docker.docker_compose_v2:
-    project_src: "{{ docker_base_dir }}/{{ sablier_service_name }}"
+    project_src: "{{ sablier.path }}"
     state: present
     pull: always
     remove_orphans: true

@@ -1,15 +1,18 @@
 ---
-# [ Service Identity ]
-sablier_service_name: "sablier"
-sablier_image: "sablierapp/sablier"
-sablier_version: "latest"
+sablier:
+  service: "sablier"
 
-# [ Network ]
-sablier_network: "{{ docker_network_name }}"
+  # Image + Tag
+  image: "sablierapp/sablier:latest"
 
-# [ Integration ]
-# Используем Socket Proxy для безопасности
-sablier_docker_host: "tcp://socket-proxy:2375"
+  path: "{{ docker.base_dir }}/sablier"
 
-# [ Resources ]
-sablier_memory_limit: "64M"
+  # Integration
+  # Default to global setting
+  socket_proxy: "{{ enable.socket_proxy | default(false) }}"
+
+  # Resources
+  memory: "64M"
+
+  # Logging
+  log_level: "info"

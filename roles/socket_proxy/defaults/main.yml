@@ -1,30 +1,31 @@
 ---
-# [ Service Identity ]
-socket_proxy_service_name: "socket-proxy"
-socket_proxy_container_name: "socket-proxy"
+socket_proxy:
+  service: "socket-proxy"
 
-# [ Image ]
-socket_proxy_image: "wollomatic/socket-proxy"
-socket_proxy_tag: "1"
+  # Image + Tag
+  image: "wollomatic/socket-proxy:1"
 
-# [ Paths ]
-socket_proxy_compose_dir: "{{ docker_base_dir }}/{{ socket_proxy_service_name }}"
+  path: "{{ docker.base_dir }}/socket-proxy"
 
-# [ Access Control ]
-socket_proxy_allow_from: "0.0.0.0/0"
+  # Access Control
+  allow_from: "0.0.0.0/0"
 
-# [ Security Policy - Allowed Actions (Regex) ]
-# Поддержка запросов с/без префикса версии API (/v1.24/containers/json или /containers/json)
-# Это нужно для совместимости с разными клиентами (Autoheal, Caddy, Dozzle)
-socket_proxy_allow_get_pattern: "(/v[0-9.]+)?/(version|containers/.*|events.*|info|networks.*|tasks.*|nodes.*|services.*|distribution.*|images.*|volumes.*)"
-socket_proxy_allow_post_pattern: "(/v[0-9.]+)?/containers/[a-zA-Z0-9_.-]+/(start|stop|restart|wait)"
-socket_proxy_allow_head_pattern: "/_ping"
+  # Security Policy (Regex)
+  # Supports Docker API with/without version prefix (e.g. /v1.24/containers or /containers)
+  patterns:
+    # GET: Read-only access (info, lists, logs)
+    get: "(/v[0-9.]+)?/(version|containers/.*|events.*|info|networks.*|tasks.*|nodes.*|services.*|distribution.*|images.*|volumes.*)"
+    # POST: Actions allowed (restart containers) - Needed for Autoheal
+    post: "(/v[0-9.]+)?/containers/[a-zA-Z0-9_.-]+/(start|stop|restart|wait)"
+    # HEAD: Healthchecks
+    head: "/_ping"
 
-# [ Watchdog & Health ]
-socket_proxy_watchdog_interval: "360"
-socket_proxy_stop_on_watchdog: "true"
-socket_proxy_shutdown_grace: "10"
-socket_proxy_allow_healthcheck: "true"
+  # Watchdog Configuration
+  config:
+    watchdog_interval: "360"
+    stop_on_watchdog: true
+    shutdown_grace: "10"
+    allow_healthcheck: true
 
-# [ Resources ]
-socket_proxy_memory_limit: "64M"
+  # Resources
+  memory: "64M"
