@@ -16,7 +16,7 @@ watchtower:
     revive_stopped: false
 
     # Safety
-    rolling_restart: true
+    rolling_restart: false
     timeout: "30s"
 
     # Notification Settings
